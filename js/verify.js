@@ -23,8 +23,10 @@ const DRAW_API = 'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findD
 
 /** CORS代理列表（浏览器file://协议下跨域获取数据用） */
 const CORS_PROXIES = [
-    'https://corsproxy.io/?',
     'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://api-proxy.m_dev.workers.dev/?url=',
+    'https://cors-anywhere.herokuapp.com/',
 ];
 
 /** 彩种对应的API参数名 */
@@ -780,7 +782,7 @@ window.onload = function () {
 // ==================== 自动获取开奖号码 ====================
 
 /** 获取开奖号码并自动填入 */
-async function fetchDrawAndFill() {
+async function fetchDrawAndFill(button) {
     const id = document.getElementById('verify-lottery').value;
     if (!id) { alert('请先选择彩票类型！'); return; }
 
@@ -788,10 +790,12 @@ async function fetchDrawAndFill() {
     const issueInput = document.getElementById(`verify-issue-${id}`);
     const issue = issueInput ? issueInput.value.trim() : '';
 
-    const btn = document.querySelector('.fetch-btn');
-    const origText = btn.textContent;
-    btn.textContent = '⏳ 获取中...';
-    btn.disabled = true;
+    const btn = button || document.querySelector(`#verify-panel-${id} .fetch-btn`) || document.querySelector('.fetch-btn');
+    const origText = btn ? btn.textContent : '📡 获取开奖';
+    if (btn) {
+        btn.textContent = '⏳ 获取中...';
+        btn.disabled = true;
+    }
 
     try {
         const result = await fetchDrawResult(id, issue || undefined);
@@ -803,12 +807,16 @@ async function fetchDrawAndFill() {
             issueEl.textContent = `${label} (${result.drawDate})`;
             issueEl.style.display = 'inline';
         }
-        btn.textContent = '✅ 已获取';
-        setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+        if (btn) {
+            btn.textContent = '✅ 已获取';
+            setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+        }
     } catch (e) {
         alert(e.message);
-        btn.textContent = '❌ 获取失败';
-        setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+        if (btn) {
+            btn.textContent = '❌ 获取失败';
+            setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+        }
     }
 }
 
