@@ -1,0 +1,322 @@
+/* ==================== 彩票查询工具样式 ==================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+}
+
+h1 {
+    text-align: center;
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 顶部选择器区域 */
+.select-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.select-container label {
+    color: #fff;
+    font-weight: bold;
+    margin: 0;
+}
+
+.select-container select {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    min-width: 120px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+}
+
+.select-container select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* 主容器 */
+.container {
+    max-width: 520px;
+    margin: auto;
+    background: #ffffffcc;
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.lottery-info {
+    text-align: center;
+    padding: 10px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #555;
+}
+
+label {
+    display: block;
+    margin-top: 16px;
+    font-weight: 600;
+    color: #444;
+}
+
+.label-hint {
+    font-weight: normal;
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
+}
+
+select,
+input[type="number"],
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    margin-top: 6px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+select:focus,
+input[type="number"]:focus,
+input[type="text"]:focus {
+    border-color: #667eea;
+    outline: none;
+}
+
+button {
+    margin-top: 24px;
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+.result {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f0f4ff;
+    border-left: 5px solid #667eea;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    text-align: center;
+}
+
+.detail-wrapper {
+    margin-top: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.detail-table {
+    width: 100%;
+    min-width: 380px;
+    border-collapse: collapse;
+    font-size: 14px;
+    table-layout: auto;
+}
+
+.detail-table th,
+.detail-table td {
+    border: 1px solid #ccc;
+    padding: 8px 6px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.detail-table th {
+    background: #667eea;
+    color: #fff;
+    font-weight: bold;
+}
+
+/* 奖金对照表区域 */
+.table-section {
+    margin-top: 40px;
+}
+
+.table-section h2 {
+    text-align: center;
+    color: #fff;
+    font-size: 22px;
+    margin-bottom: 12px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.prize-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+table {
+    width: 100%;
+    min-width: 420px;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+th,
+td {
+    border: 1px solid #e0e0e0;
+    padding: 8px 6px;
+    text-align: center;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+th {
+    background: #667eea;
+    color: #fff;
+}
+
+tr:nth-child(even) td {
+    background: #f9f9f9;
+}
+
+/* 面板切换 */
+.lottery-panel {
+    display: none;
+}
+
+.lottery-panel.active {
+    display: block;
+}
+
+/* 彩球颜色 */
+.red-ball {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.blue-ball {
+    color: #3498db;
+    font-weight: bold;
+}
+
+.green-ball {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.special-ball {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.prize-float {
+    color: #e67e22;
+    font-style: italic;
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+    .container {
+        padding: 16px;
+    }
+
+    h1 {
+        font-size: 22px;
+    }
+
+    .select-container {
+        flex-direction: column;
+    }
+
+    .select-container select {
+        width: 100%;
+    }
+
+    button {
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    .result {
+        font-size: 16px;
+    }
+
+    .detail-table {
+        font-size: 12px;
+        min-width: 320px;
+    }
+
+    .detail-table th,
+    .detail-table td {
+        padding: 6px 4px;
+    }
+
+    th,
+    td {
+        font-size: 12px;
+        padding: 6px 4px;
+    }
+}
+
+/* 返回首页链接 - 固定在左上角 */
+.back-link {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 100;
+}
+
+.back-link a {
+    display: inline-block;
+    padding: 8px 18px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 14px;
+    backdrop-filter: blur(4px);
+    transition: background 0.3s;
+}
+
+.back-link a:hover {
+    background: rgba(255, 255, 255, 0.35);
+}

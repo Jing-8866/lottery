@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎰 公益事业 - 彩票投注助手</title>
+    <link rel="stylesheet" href="css/bet.css">
+</head>
+<body>
+    <div class="back-link">
+        <a href="index.html">🏠 返回首页</a>
+    </div>
+    <div class="container">
+        <h1>🎰 公益事业 🎰</h1>
+
+        <!-- 开奖提示卡片 -->
+        <div class="card">
+            <div class="lottery-type">📅 开奖提示</div>
+            <div style="text-align: center; color: #555; line-height: 1.8;">
+                <p><strong>🔴 双色球</strong> - 每周二、四、日开奖</p>
+                <p><strong>🟢 大乐透</strong> - 每周一、三、六开奖</p>
+                <p><strong>🟡 七乐彩</strong> - 每周一、三、五开奖（注：七乐彩每周一、三、五开奖，非一、三、五、日）</p>
+                <p><strong>🟣 快乐8</strong> - 每天开奖</p>
+            </div>
+        </div>
+
+        <!-- 批量生成界面 -->
+        <div id="batchPanel" class="card">
+            
+            <div class="input-group">
+                <label>彩票类型</label>
+                <select id="batchType" onchange="handleBatchTypeChange()">
+                    <option value="shuangseqiu">🔴 双色球</option>
+                    <option value="daletou">🟢 大乐透</option>
+                    <option value="qilecai">🟡 七乐彩</option>
+                    <option value="kuail8">🟣 快乐8</option>
+                </select>
+            </div>
+            
+            <!-- 快乐8玩法级联选择 -->
+            <div id="kl8PlayTypeGroup" class="input-group hidden">
+                <label>玩法</label>
+                <select id="batchKL8PlayType">
+                    <option value="1">选一</option>
+                    <option value="2">选二</option>
+                    <option value="3">选三</option>
+                    <option value="4" selected>选四</option>
+                    <option value="5">选五</option>
+                    <option value="6">选六</option>
+                    <option value="7">选七</option>
+                    <option value="8">选八</option>
+                    <option value="9">选九</option>
+                    <option value="10">选十</option>
+                </select>
+            </div>
+            
+            <div class="input-group">
+                <label>投注数量</label>
+                <select id="batchCount">
+                    <option value="1" selected>1注</option>
+                    <option value="3">3注</option>
+                    <option value="5">5注</option>
+                    <option value="10">10注</option>
+                </select>
+            </div>
+            
+            <button class="confirm-btn" onclick="generateBatch()">🎲 生成投注号码</button>
+            
+            <div id="batchResults" class="batch-results hidden"></div>
+        </div>
+
+    </div>
+
+    <script src="js/shared.js"></script>
+    <script src="js/bet.js"></script>
+</body>
+</html>

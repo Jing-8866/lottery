@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>彩票工具箱</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.8em;
+            color: #fff;
+            text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+            margin-bottom: 12px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .card-container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 800px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 36px 32px;
+            width: 320px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-align: center;
+            cursor: pointer;
+            text-decoration: none;
+            color: #333;
+            display: block;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-icon {
+            font-size: 4em;
+            margin-bottom: 16px;
+        }
+
+        .card h2 {
+            font-size: 1.6em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .card p {
+            font-size: 0.95em;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .card .tag-list {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .card .tag {
+            background: #f0f4ff;
+            color: #667eea;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .footer {
+            margin-top: 40px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85em;
+            text-align: center;
+        }
+
+        @media (max-width: 720px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .card {
+                width: 100%;
+                max-width: 360px;
+            }
+        }
+
+        .card:nth-child(1) .card-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card:nth-child(2) .card-icon {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card:nth-child(3) .card-icon {
+            background: linear-gradient(135deg, #43e97b, #38f9d7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎱 彩票工具箱</h1>
+        <p>奖金计算 · 号码生成 · 中奖核对 · 开奖提醒</p>
+    </div>
+
+    <div class="card-container">
+        <a class="card" href="彩票查询工具.html">
+            <div class="card-icon">🎯</div>
+            <h2>彩票奖金计算器</h2>
+            <p>支持双色球、大乐透、快乐8、七乐彩、七星彩的复式投注奖金计算，自动计算各奖级中奖注数及总奖金。</p>
+            <div class="tag-list">
+                <span class="tag">双色球</span>
+                <span class="tag">大乐透</span>
+                <span class="tag">快乐8</span>
+                <span class="tag">七乐彩</span>
+                <span class="tag">七星彩</span>
+            </div>
+        </a>
+
+        <a class="card" href="投注工具.html">
+            <div class="card-icon">🎲</div>
+            <h2>彩票投注助手</h2>
+            <p>随机生成双色球、大乐透、七乐彩、快乐8的投注号码，支持批量生成，开奖日历一目了然。</p>
+            <div class="tag-list">
+                <span class="tag">随机选号</span>
+                <span class="tag">批量生成</span>
+                <span class="tag">开奖日历</span>
+            </div>
+        </a>
+
+        <a class="card" href="彩票核对工具.html">
+            <div class="card-icon">✅</div>
+            <h2>彩票中奖核对</h2>
+            <p>输入自己的投注号码和官方开奖号码，自动比对并计算中奖等级、注数及奖金，支持复式投注。</p>
+            <div class="tag-list">
+                <span class="tag">中奖核对</span>
+                <span class="tag">复式比对</span>
+                <span class="tag">奖金计算</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="footer">
+        💡 本工具仅供学习参考，请理性购彩，量力而行
+    </div>
+</body>
+</html>

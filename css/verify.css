@@ -1,0 +1,463 @@
+/* ==================== 彩票核对工具样式 ==================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+}
+
+h1 {
+    text-align: center;
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 顶部选择器 */
+.select-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.select-container label {
+    color: #fff;
+    font-weight: bold;
+    margin: 0;
+}
+
+.select-container select {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    min-width: 120px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+}
+
+.select-container select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* 主容器 */
+.main-container {
+    max-width: 720px;
+    margin: auto;
+}
+
+/* 卡片 */
+.card {
+    background: #ffffffcc;
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px dashed #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lottery-info {
+    text-align: center;
+    padding: 10px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #555;
+}
+
+/* 表单 */
+.form-row {
+    margin-bottom: 14px;
+}
+
+.form-row label {
+    display: block;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.form-row .hint {
+    font-weight: normal;
+    font-size: 12px;
+    color: #888;
+    margin-left: 6px;
+}
+
+input[type="text"],
+input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.3s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+    border-color: #667eea;
+    outline: none;
+}
+
+.input-with-balls {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.input-with-balls input {
+    flex: 1;
+}
+
+/* 号码展示行 */
+.ball-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    min-height: 34px;
+    align-items: center;
+}
+
+.ball-row .ball {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 13px;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+}
+
+.ball-row .ball-red {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+}
+
+.ball-row .ball-blue {
+    background: linear-gradient(135deg, #6874DB, #4B5AB5);
+}
+
+.ball-row .ball-orange {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+}
+
+.ball-row .ball-kl8 {
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+}
+
+.ball-row .ball-green {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+}
+
+.ball-row .ball-grey {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+}
+
+/* 两栏布局 */
+.two-col {
+    display: flex;
+    gap: 16px;
+}
+
+.two-col .col {
+    flex: 1;
+}
+
+@media (max-width: 600px) {
+    .two-col {
+        flex-direction: column;
+    }
+}
+
+/* 获取开奖号码按钮 */
+.fetch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 16px 0 4px;
+    flex-wrap: wrap;
+}
+
+.fetch-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.issue-input {
+    width: 130px !important;
+    padding: 8px 10px !important;
+    border: 2px solid #ddd !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    text-align: center;
+    transition: border-color 0.3s;
+}
+
+.issue-input:focus {
+    border-color: #667eea !important;
+    outline: none;
+}
+
+.issue-input::placeholder {
+    color: #aaa;
+    font-size: 12px;
+}
+
+.draw-info {
+    font-size: 13px;
+    color: #667eea;
+    font-weight: 600;
+    display: none;
+    white-space: nowrap;
+}
+
+.fetch-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #43e97b, #38f9d7);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+
+.fetch-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(67, 233, 123, 0.4);
+}
+
+.fetch-btn:active {
+    transform: translateY(0);
+}
+
+.fetch-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.fetch-btn.tc-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    transform: none;
+    pointer-events: none;
+}
+
+.fetch-btn.tc-disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* 体彩不可用提示 */
+.tc-hint {
+    margin: 8px 0 4px;
+    padding: 10px 14px;
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #856404;
+    line-height: 1.5;
+}
+
+.tc-hint a {
+    color: #667eea;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.tc-hint a:hover {
+    color: #764ba2;
+}
+
+.btn-check {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 8px;
+}
+
+.btn-check:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.btn-check:active {
+    transform: translateY(0);
+}
+
+/* 结果区域 */
+.result-section {
+    display: none;
+}
+
+.result-section.show {
+    display: block;
+}
+
+.result-summary {
+    padding: 16px;
+    background: #f0f4ff;
+    border-left: 5px solid #667eea;
+    border-radius: 8px;
+    font-size: 16px;
+    color: #333;
+    text-align: center;
+    line-height: 1.8;
+}
+
+.result-summary .big {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.result-summary .win {
+    color: #e74c3c;
+}
+
+.result-summary .highlight {
+    color: #667eea;
+    font-weight: bold;
+}
+
+.result-table-wrapper {
+    margin-top: 16px;
+    overflow-x: auto;
+}
+
+.result-table {
+    width: 100%;
+    min-width: 400px;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.result-table th,
+.result-table td {
+    border: 1px solid #ccc;
+    padding: 8px 6px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.result-table th {
+    background: #667eea;
+    color: #fff;
+    font-weight: bold;
+}
+
+.result-table tr:nth-child(even) td {
+    background: #f9f9f9;
+}
+
+/* 期号行 */
+.draw-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.draw-row input {
+    max-width: 160px;
+}
+
+/* 没有匹配的面板 */
+.lottery-panel {
+    display: none;
+}
+
+.lottery-panel.active {
+    display: block;
+}
+
+/* 返回首页 - 固定在左上角 */
+.back-link {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 100;
+}
+
+.back-link a {
+    display: inline-block;
+    padding: 8px 18px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 14px;
+    backdrop-filter: blur(4px);
+    transition: background 0.3s;
+}
+
+.back-link a:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+@media (max-width: 480px) {
+    h1 {
+        font-size: 22px;
+    }
+
+    .card {
+        padding: 16px;
+    }
+
+    .select-container {
+        flex-direction: column;
+    }
+
+    .select-container select {
+        width: 100%;
+    }
+}
