@@ -1,6 +1,0 @@
-
-*.py
-debug_pages/*
-his_pages/*
-
-!crawl.py
