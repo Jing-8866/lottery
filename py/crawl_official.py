@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import time
+import random
 from datetime import datetime
 
 # ========== 配置 ==========
@@ -28,10 +29,18 @@ RETRY_TIMES = 3
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-    "Referer": "https://www.cwl.gov.cn/",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "Sec-Ch-Ua": '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
 }
 
 # 输出目录：脚本所在目录的上级 data/ 下
@@ -84,21 +93,40 @@ def log(msg, level="INFO"):
     print(f"[{timestamp}] [{level}] {msg}")
 
 
-def fetch_json(url, headers=None, params=None, source_name=""):
-    """通用 JSON API 请求，带重试"""
+def make_session(base_url, referer):
+    """创建带浏览器级 Cookie 和 Header 的 Session（先访问首页获取 Cookie）"""
+    sess = requests.Session()
+    sess.headers.update(HEADERS)
+    sess.headers["Referer"] = referer
+
+    # 先访问首页，获取必要的 Cookie
+    try:
+        home = sess.get(referer, timeout=TIMEOUT)
+        if DEBUG:
+            log(f"首页 Cookie: {dict(sess.cookies)}", "DEBUG")
+    except Exception as e:
+        log(f"首页访问失败（不影响后续）: {e}", "WARN")
+
+    # 随机延迟 1~3 秒，模拟真人
+    time.sleep(1 + random.random() * 2)
+    return sess
+
+
+def fetch_json(url, session, params=None, source_name=""):
+    """使用已有 Session 发起 JSON API 请求，带重试"""
     last_err = None
     for attempt in range(RETRY_TIMES):
         try:
             if attempt > 0:
-                wait = 2 ** attempt
-                log(f"重试 {attempt + 1}/{RETRY_TIMES}，等待 {wait}s...", "WARN")
+                wait = 2 ** attempt + random.random() * 2
+                log(f"重试 {attempt + 1}/{RETRY_TIMES}，等待 {wait:.1f}s...", "WARN")
                 time.sleep(wait)
-            r = requests.get(url, headers=headers or HEADERS,
-                             params=params, timeout=TIMEOUT)
+            r = session.get(url, params=params, timeout=TIMEOUT)
             if r.status_code != 200:
                 last_err = f"HTTP {r.status_code}"
                 if DEBUG:
-                    log(f"响应内容(前200字): {r.text[:200]}", "DEBUG")
+                    log(f"响应头: {dict(r.headers)}", "DEBUG")
+                    log(f"响应体(前300字): {r.text[:300]}", "DEBUG")
                 continue
             return r.json()
         except Exception as e:
@@ -136,6 +164,8 @@ def crawl_fc(key):
     cfg = FC_CONFIG[key]
     log(f"[福彩] 开始抓取 {cfg['name']} ({key})...")
 
+    session = make_session("https://www.cwl.gov.cn/", "https://www.cwl.gov.cn/")
+
     params = {
         "name": cfg["api_name"],
         "issueCount": "",
@@ -149,7 +179,7 @@ def crawl_fc(key):
         "systemType": "PC",
     }
 
-    data = fetch_json(FC_URL, params=params, source_name=f"福彩{cfg['name']}")
+    data = fetch_json(FC_URL, session, params=params, source_name=f"福彩{cfg['name']}")
 
     items = data.get("result", [])
     if not items:
@@ -197,6 +227,11 @@ def crawl_tc(key):
     cfg = TC_CONFIG[key]
     log(f"[体彩] 开始抓取 {cfg['name']} ({key})...")
 
+    session = make_session("https://www.lottery.gov.cn/", "https://www.lottery.gov.cn/")
+
+    # 体彩 API 需要额外的 lottery.gov.cn referer
+    session.headers["Referer"] = "https://www.lottery.gov.cn/kj/kjlb.html?" + cfg["game_no"]
+
     params = {
         "gameNo": cfg["game_no"],
         "provinceId": "0",
@@ -205,11 +240,7 @@ def crawl_tc(key):
         "pageNo": 1,
     }
 
-    # 体彩 API 需要 Referer
-    tc_headers = HEADERS.copy()
-    tc_headers["Referer"] = "https://www.lottery.gov.cn/"
-
-    data = fetch_json(TC_URL, headers=tc_headers, params=params, source_name=f"体彩{cfg['name']}")
+    data = fetch_json(TC_URL, session, params=params, source_name=f"体彩{cfg['name']}")
 
     items = data.get("value", {}).get("list", [])
     if not items:
@@ -228,7 +259,162 @@ def crawl_tc(key):
     return parsed
 
 
-# ========== 彩种分发 ==========
+# ========== 500.com 备用爬取（官方 API 被 WAF 拦截时自动降级）==========
+
+FALLBACK_URLS = {
+    "ssq": "https://datachart.500.com/ssq/history/newinc/history.php?start=00001&end=99999&limit=50",
+    "dlt": "https://datachart.500.com/dlt/history/newinc/history.php?start=00001&end=99999&limit=50",
+    "qlc": "https://datachart.500.com/qlc/history/newinc/history.php?start=00001&end=99999&limit=50",
+    "kl8": "https://datachart.500.com/kl8/?expect=50",
+    "qxc": "https://datachart.500.com/qxc/?expect=50",
+}
+
+FALLBACK_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+}
+
+
+def fallback_crawl(key):
+    """500.com 备用爬取（仅当官方 API 失败时调用）"""
+    url = FALLBACK_URLS.get(key)
+    if not url:
+        return None
+
+    log(f"[备用] 尝试从 500.com 抓取 {key}...")
+
+    try:
+        r = requests.get(url, headers=FALLBACK_HEADERS, timeout=TIMEOUT)
+        if r.status_code != 200:
+            log(f"[备用] {key}: HTTP {r.status_code}", "WARN")
+            return None
+
+        from bs4 import BeautifulSoup
+        html = r.content.decode("utf-8", "ignore")
+        soup = BeautifulSoup(html, "lxml")
+
+        if key == "ssq":
+            return fallback_parse_ssq(soup)
+        elif key == "dlt":
+            return fallback_parse_dlt(soup)
+        elif key == "qlc":
+            return fallback_parse_qlc(soup)
+        elif key == "kl8":
+            return fallback_parse_kl8(soup)
+        elif key == "qxc":
+            return fallback_parse_qxc(soup)
+    except ImportError:
+        log("[备用] 缺少 beautifulsoup4 或 lxml，无法使用备用方案", "WARN")
+        return None
+    except Exception as e:
+        log(f"[备用] {key}: 失败 - {e}", "WARN")
+        return None
+
+
+def fallback_parse_ssq(soup):
+    """500.com 双色球解析"""
+    data = []
+    tbody = soup.find("tbody", id="tdata")
+    if not tbody:
+        return data
+    for tr in tbody.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 16:
+            continue
+        issue = tds[0].get_text().strip()
+        reds = [td.get_text().strip().zfill(2) for td in tds[1:7]]
+        blues = [td.get_text().strip().zfill(2) for td in tds[7:8]]
+        date = tds[15].get_text().strip()
+        data.append({"issue": issue, "date": date, "red": reds, "blue": blues})
+    return data
+
+
+def fallback_parse_dlt(soup):
+    """500.com 大乐透解析"""
+    data = []
+    tbody = soup.find("tbody", id="tdata")
+    if not tbody:
+        return data
+    for tr in tbody.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) < 15:
+            continue
+        issue = "20" + tds[0].get_text().strip()
+        fronts = [td.get_text().strip().zfill(2) for td in tds[1:6]]
+        backs = [td.get_text().strip().zfill(2) for td in tds[6:8]]
+        date = tds[14].get_text().strip()
+        data.append({"issue": issue, "date": date, "red": fronts, "blue": backs})
+    return data
+
+
+def fallback_parse_qlc(soup):
+    """500.com 七乐彩解析"""
+    data = []
+    tbl = soup.find("table", id="tablelist")
+    if not tbl:
+        return data
+    for tr in list(tbl.find_all("tr"))[1:]:
+        tds = tr.find_all("td")
+        if len(tds) < 6:
+            continue
+        issue = "20" + tds[0].get_text().strip()
+        nums = tds[1].get_text().strip().split()
+        date = tds[5].get_text().strip()
+        if len(nums) >= 7:
+            basics = [n.zfill(2) for n in nums[:7]]
+            special = nums[7].zfill(2) if len(nums) > 7 else ""
+            data.append({"issue": issue, "date": date, "red": basics, "special": special})
+    return data
+
+
+def _extract_date_from_tds(tds):
+    """在 td 列表中查找包含日期格式的文本（如 2026-07-21）"""
+    import re
+    for td in tds:
+        text = td.get_text().strip()
+        m = re.search(r'(20\d{2}-\d{2}-\d{2})', text)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def fallback_parse_kl8(soup):
+    """500.com 快乐8解析（含日期提取）"""
+    data = []
+    for t_tag in soup.find_all("tbody", id="tdata"):
+        for tr in t_tag.find_all("tr"):
+            if len(tr) == 1:
+                continue
+            tds = tr.find_all("td")
+            seq_no = tds[0].get_text().replace(" ", "")
+            nums = [td.get_text().strip().zfill(2)
+                    for td in tds if td.get("class") and "chartBall01" in td.get("class")][:20]
+            date = _extract_date_from_tds(tds)
+            data.append({"issue": seq_no, "date": date, "red": nums})
+    return data
+
+
+def fallback_parse_qxc(soup):
+    """500.com 七星彩解析（含日期提取）"""
+    data = []
+    import re
+    for t_tag in soup.find_all("table", class_="zs_table"):
+        for tr in t_tag.find_all("tr"):
+            if len(tr) != 87:
+                continue
+            tds = tr.find_all("td")
+            seq_no = "20" + tds[0].get_text().replace(" ", "")
+            nums = [td.get_text().strip().zfill(2)
+                    for td in tds if td.get("class") and "chartBall01" in td.get("class")][:7]
+            # 查找日期：遍历所有 td 找 YYYY-MM-DD 格式
+            date = _extract_date_from_tds(tds)
+            data.append({"issue": seq_no, "date": date, "numbers": nums})
+    return data
+
+
+# ========== 彩种分发（含自动降级）==========
 
 CRAWLERS = {}
 
@@ -236,6 +422,22 @@ for k in FC_CONFIG:
     CRAWLERS[k] = crawl_fc
 for k in TC_CONFIG:
     CRAWLERS[k] = crawl_tc
+
+
+def crawl_with_fallback(key):
+    """尝试官方 API，失败后自动降级到 500.com"""
+    try:
+        return CRAWLERS[key](key)
+    except Exception as e:
+        log(f"官方 API 失败: {e}", "WARN")
+        log("尝试 500.com 备用方案...", "WARN")
+        fb_data = fallback_crawl(key)
+        if fb_data is not None and len(fb_data) > 0:
+            log(f"备用方案成功: {key} 获取到 {len(fb_data)} 期")
+            return fb_data
+        # 备用也失败，抛出原始异常
+        log("备用方案也失败", "ERROR")
+        raise
 
 
 def merge_with_existing(key, new_data):
@@ -293,7 +495,7 @@ def main():
             log(f"未知彩种: {key}，跳过", "WARN")
             continue
         try:
-            new_data = CRAWLERS[key](key)
+            new_data = crawl_with_fallback(key)
             if not new_data:
                 log(f"警告: {key} 未解析到任何数据", "WARN")
                 fail_count += 1

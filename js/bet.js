@@ -97,7 +97,340 @@ function shuffle(arr) {
     }
     return a;
 }
+// ==================== 历史走势数据加载 ====================
 
+/** 投注类型 → JSON 文件映射 */
+const BET_DATA_MAP = {
+    shuangseqiu: { file: 'ssq.json', groups: [
+        { key: 'red',  field: 'red' },
+        { key: 'blue', field: 'blue' }
+    ]},
+    daletou: { file: 'dlt.json', groups: [
+        { key: 'front', field: 'red' },
+        { key: 'back',  field: 'blue' }
+    ]},
+    qilecai: { file: 'qlc.json', groups: [
+        { key: 'basic',  field: 'red' },
+        { key: 'special',field: 'blue' }
+    ]},
+    kuail8: { file: 'kl8.json', groups: [
+        { key: 'numbers', field: 'red' }
+    ]}
+};
+
+const DATA_PATH_LOCAL = 'data';
+const DATA_PATH_REMOTE = 'https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data';
+
+/** 缓存已加载的历史数据，避免重复请求 */
+let historyDataCache = {};
+
+/**
+ * 加载某个彩种的历史开奖数据
+ * @param {string} betType  投注工具中的彩种 ID（如 shuangseqiu）
+ * @returns {Promise<object[]>} 历史数据数组（最新期在前）
+ */
+async function loadHistoryData(betType) {
+    if (historyDataCache[betType]) return historyDataCache[betType];
+
+    const map = BET_DATA_MAP[betType];
+    if (!map) return [];
+
+    let resp;
+    try {
+        resp = await fetch(`${DATA_PATH_LOCAL}/${map.file}`);
+    } catch {
+        resp = null;
+    }
+    if (!resp || !resp.ok) {
+        try {
+            resp = await fetch(`${DATA_PATH_REMOTE}/${map.file}`);
+        } catch {
+            return [];
+        }
+        if (!resp || !resp.ok) return [];
+    }
+
+    try {
+        const json = await resp.json();
+        const data = json.data || [];
+        historyDataCache[betType] = data;
+        return data;
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * 分析某个号码组的历史频率
+ * @param {object[]} history  历史数据数组
+ * @param {string} field      JSON 中的字段名（如 'red'）
+ * @param {number} [limit]    只分析最近 N 期
+ * @returns {Map<number, number>} 号码 → 出现次数
+ */
+function analyzeFrequencies(history, field, limit) {
+    const freq = new Map();
+    const items = limit ? history.slice(0, limit) : history;
+
+    for (const item of items) {
+        const nums = item[field];
+        if (!Array.isArray(nums)) continue;
+        for (const n of nums) {
+            const num = parseInt(n, 10);
+            if (!isNaN(num)) {
+                freq.set(num, (freq.get(num) || 0) + 1);
+            }
+        }
+    }
+    return freq;
+}
+
+/**
+ * 计算每个号码的"冷热值" — 最近出现越少值越高（越冷）
+ * @param {object[]} history  历史数据
+ * @param {string} field      字段名
+ * @param {number} totalRange 号码总数范围（如 33）
+ * @param {number} [recent]   近期窗口期数
+ * @returns {Map<number, number>} 号码 → 冷热评分（越高越冷）
+ */
+function analyzeColdHot(history, field, totalRange, recent = 20) {
+    const scores = new Map();
+    for (let i = 1; i <= totalRange; i++) scores.set(i, 0);
+
+    if (!history || history.length === 0) return scores;
+
+    // 近期权重高，远期权重低
+    const maxLookback = Math.min(history.length, 100);
+    for (let idx = 0; idx < maxLookback; idx++) {
+        const item = history[idx];
+        const nums = item[field];
+        if (!Array.isArray(nums)) continue;
+
+        // 越近权重越大：第0期权重=100，第99期权重=1
+        const weight = Math.max(1, 100 - idx);
+        for (const n of nums) {
+            const num = parseInt(n, 10);
+            if (!isNaN(num) && scores.has(num)) {
+                scores.set(num, scores.get(num) + weight);
+            }
+        }
+    }
+
+    // 归一化：出现越多分数越高 → 热号分高，冷号分低
+    // 转换为冷热值：返回原始的频率分数即可
+    return scores;
+}
+
+/** 按权重随机抽取一个号码 */
+function weightedPick(candidates, weights) {
+    const total = weights.reduce((a, b) => a + b, 0);
+    if (total <= 0) return candidates[Math.floor(Math.random() * candidates.length)];
+
+    let r = Math.random() * total;
+    for (let i = 0; i < candidates.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+}
+
+// ==================== 走势策略：热号加权 ====================
+
+/**
+ * 基于历史频率加权抽取（热号更易出现）
+ */
+function strategyHotWeighted(min, max, count, freqMap) {
+    const candidates = [];
+    const weights = [];
+    for (let i = min; i <= max; i++) {
+        candidates.push(i);
+        // 频率越高权重越大，+1 保证从未出现的号码也有机会
+        weights.push((freqMap.get(i) || 0) + 1);
+    }
+
+    for (let attempt = 0; attempt < 100; attempt++) {
+        const picked = new Set();
+        const tempWeights = [...weights];
+        const tempCands = [...candidates];
+
+        while (picked.size < count) {
+            const idx = weightedPick(tempCands, tempWeights);
+            picked.add(tempCands[idx]);
+            // 选过的置零权重
+            tempWeights[idx] = 0;
+        }
+
+        const result = [...picked].sort((a, b) => a - b);
+        if (!hasTooManyConsecutive(result)) return result;
+    }
+    return sample(min, max, count);
+}
+
+// ==================== 走势策略：冷号反弹 ====================
+
+/**
+ * 冷号反弹策略 — 长期未出的号码有更高概率出现
+ */
+function strategyColdRebound(min, max, count, coldHotScores) {
+    // 计算平均分
+    const scores = [];
+    for (let i = min; i <= max; i++) {
+        scores.push(coldHotScores.get(i) || 0);
+    }
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+    const candidates = [];
+    const weights = [];
+    for (let i = min; i <= max; i++) {
+        candidates.push(i);
+        const score = coldHotScores.get(i) || 0;
+        // 低于平均分的号码（冷号）获得反弹权重
+        // 越冷权重越大：反弹权重 = 平均分 / (分数 + 1)
+        const reboundWeight = score < avg ? Math.round((avg + 1) / (score + 1) * 10) : 1;
+        weights.push(reboundWeight);
+    }
+
+    for (let attempt = 0; attempt < 100; attempt++) {
+        const picked = new Set();
+        const tempWeights = [...weights];
+        const tempCands = [...candidates];
+
+        while (picked.size < count) {
+            const idx = weightedPick(tempCands, tempWeights);
+            picked.add(tempCands[idx]);
+            tempWeights[idx] = 0;
+        }
+
+        const result = [...picked].sort((a, b) => a - b);
+        if (!hasTooManyConsecutive(result)) return result;
+    }
+    return sample(min, max, count);
+}
+
+// ==================== 走势策略：热冷混合 ====================
+
+/**
+ * 热冷混合策略 — 一部分热号 + 一部分冷号
+ */
+function strategyHotColdMix(min, max, count, freqMap, coldHotScores) {
+    const avg = (() => {
+        let sum = 0, n = 0;
+        for (let i = min; i <= max; i++) {
+            sum += coldHotScores.get(i) || 0;
+            n++;
+        }
+        return sum / n;
+    })();
+
+    // 区分热号和冷号
+    const hotNums = [];
+    const coldNums = [];
+    for (let i = min; i <= max; i++) {
+        const score = coldHotScores.get(i) || 0;
+        if (score >= avg) hotNums.push(i);
+        else coldNums.push(i);
+    }
+
+    // 随机决定热号比例 (40%~70%)
+    const hotRatio = 0.4 + Math.random() * 0.3;
+    let hotCount = Math.round(count * hotRatio);
+    let coldCount = count - hotCount;
+
+    // 确保够选
+    if (hotCount > hotNums.length) { hotCount = hotNums.length; coldCount = count - hotCount; }
+    if (coldCount > coldNums.length) { coldCount = coldNums.length; hotCount = count - coldCount; }
+
+    for (let attempt = 0; attempt < 60; attempt++) {
+        const pickedHot = shuffle(hotNums).slice(0, Math.max(0, hotCount));
+        const pickedCold = shuffle(coldNums).slice(0, Math.max(0, coldCount));
+        const merged = [...pickedHot, ...pickedCold].sort((a, b) => a - b);
+
+        if (merged.length === count && !hasTooManyConsecutive(merged)) {
+            return merged;
+        }
+    }
+    return sample(min, max, count);
+}
+
+// ==================== 走势策略：近期趋势跟随 ====================
+
+/**
+ * 近期趋势跟随 — 分析最近 N 期的区间分布、奇偶比等特征
+ */
+function strategyRecentTrend(min, max, count, history, field, opts) {
+    if (!history || history.length < 5) return null; // 数据不足，交给其他策略
+
+    const recent = history.slice(0, Math.min(history.length, 30));
+
+    // 分析近期各区间出现密度
+    const zoneHits = opts.zones ? opts.zones.map(() => 0) : null;
+    if (zoneHits) {
+        for (const item of recent) {
+            const nums = item[field];
+            if (!Array.isArray(nums)) continue;
+            for (const n of nums) {
+                const num = parseInt(n, 10);
+                if (isNaN(num)) continue;
+                for (let z = 0; z < opts.zones.length; z++) {
+                    const [zMin, zMax] = opts.zones[z];
+                    if (num >= zMin && num <= zMax) {
+                        zoneHits[z]++;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // 根据区间热度分配抽取数量
+    if (zoneHits && opts.zones) {
+        const totalHits = zoneHits.reduce((a, b) => a + b, 0);
+        if (totalHits > 0) {
+            const perZone = opts.zones.map((_, i) => Math.round(count * zoneHits[i] / totalHits));
+
+            // 调整确保总数 = count
+            let sum = perZone.reduce((a, b) => a + b, 0);
+            let diff = count - sum;
+            let idx = 0;
+            while (diff !== 0 && idx < 100) {
+                for (let i = 0; i < perZone.length && diff !== 0; i++) {
+                    if (diff > 0) { perZone[i]++; diff--; }
+                    else if (perZone[i] > 0) { perZone[i]--; diff++; }
+                }
+                idx++;
+            }
+
+            // 每区抽取
+            let result = [];
+            for (let i = 0; i < opts.zones.length; i++) {
+                const cnt = perZone[i];
+                if (cnt > 0) {
+                    const zoneMin = opts.zones[i][0];
+                    const zoneMax = opts.zones[i][1];
+                    // 在区内用热号加权
+                    const zoneFreq = new Map();
+                    for (const item of recent) {
+                        const nums = item[field];
+                        if (!Array.isArray(nums)) continue;
+                        for (const n of nums) {
+                            const num = parseInt(n, 10);
+                            if (!isNaN(num) && num >= zoneMin && num <= zoneMax) {
+                                zoneFreq.set(num, (zoneFreq.get(num) || 0) + 1);
+                            }
+                        }
+                    }
+                    result = result.concat(strategyHotWeighted(zoneMin, zoneMax, cnt, zoneFreq));
+                }
+            }
+
+            const sorted = result.sort((a, b) => a - b);
+            if (sorted.length === count && !hasTooManyConsecutive(sorted)) {
+                return sorted;
+            }
+        }
+    }
+
+    return null; // 回退
+}
 // ==================== 智能号码生成引擎 ====================
 
 /**
@@ -265,14 +598,32 @@ function strategySpanFirst(min, max, count, spanRange) {
  * @param {number[]} [opts.sumRange] 和值范围
  * @param {number[][]} [opts.parityRatios] 允许的奇偶比组合
  * @param {number[]} [opts.spanRange] 跨度范围
+ * @param {object} [opts.trend] 走势数据
+ * @param {object[]} [opts.trend.history] 历史开奖数据
+ * @param {Map} [opts.trend.freqMap] 频率统计
+ * @param {Map} [opts.trend.coldHotMap] 冷热评分
+ * @param {string} [opts.trend.field] JSON 字段名
  * @returns {number[]} 升序排列的号码数组
  */
 function smartGenerate(min, max, count, opts) {
     if (count <= 1) return sample(min, max, count);
 
     const strategies = [];
+    const trend = opts.trend;
 
-    // 注册可用策略
+    // 走势策略（如有历史数据）
+    if (trend && trend.freqMap && trend.freqMap.size > 0) {
+        strategies.push(() => strategyHotWeighted(min, max, count, trend.freqMap));
+        strategies.push(() => strategyColdRebound(min, max, count, trend.coldHotMap));
+        strategies.push(() => strategyHotColdMix(min, max, count, trend.freqMap, trend.coldHotMap));
+        if (trend.history && trend.history.length >= 5 && opts.zones) {
+            strategies.push(() =>
+                strategyRecentTrend(min, max, count, trend.history, trend.field, opts) || sample(min, max, count)
+            );
+        }
+    }
+
+    // 传统统计策略
     if (opts.zones && count >= opts.zones.length) {
         strategies.push(() => strategyZoneBalanced(opts.zones, count));
     }
@@ -289,9 +640,14 @@ function smartGenerate(min, max, count, opts) {
     // 兜底策略
     strategies.push(() => sample(min, max, count));
 
-    // 随机选一种策略（带权重：区间策略和奇偶策略权重更高）
-    const weights = [3, 2, 2, 1, 1]; // 对应 zones, parity, sum, span, fallback
-    const totalWeight = weights.slice(0, strategies.length).reduce((a, b) => a + b, 0);
+    // 权重分配：走势策略权重更高
+    const weights = strategies.map((_, i) => {
+        if (i < 4 && trend && trend.freqMap) return 4; // 走势策略权重 4
+        const nonTrendIdx = i - (trend && trend.freqMap ? 4 : 0);
+        return [3, 2, 2, 1, 1][nonTrendIdx] || 1;
+    });
+
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
     let r = Math.random() * totalWeight;
     let selectedIdx = strategies.length - 1;
     for (let i = 0; i < strategies.length; i++) {
@@ -340,8 +696,15 @@ function smartGroupBallsHTML(min, max, count, cssClass, opts) {
     return nums.map(n => ballHTML(n, cssClass)).join('');
 }
 
-/** 生成一组快乐8号码球的 HTML */
-function kl8GroupBallsHTML(count, cssClass) {
+/** 生成一组快乐8号码球的 HTML（走势版） */
+function kl8GroupBallsHTML(count, cssClass, trend) {
+    if (trend && trend.freqMap && trend.freqMap.size > 0 && count > 2) {
+        const nums = smartGenerate(1, 80, count, {
+            zones: [[1,20], [21,40], [41,60], [61,80]],
+            trend
+        });
+        return nums.map(n => ballHTML(n, cssClass)).join('');
+    }
     return smartGenerateKL8(count).map(n => ballHTML(n, cssClass)).join('');
 }
 
@@ -362,8 +725,8 @@ function handleBatchTypeChange() {
     domCache.kl8PlayGroup.classList.toggle('hidden', !isKL8);
 }
 
-/** 生成批量号码 */
-function generateBatch() {
+/** 生成批量号码（异步，需先加载历史走势数据） */
+async function generateBatch() {
     const type = domCache.batchType.value;
     let count = parseInt(domCache.batchCount.value);
     if (isNaN(count) || count < 1) count = 1;
@@ -372,6 +735,31 @@ function generateBatch() {
     const config = lotteryConfig[type];
     const resultsDiv = domCache.batchResults;
     resultsDiv.classList.remove('hidden');
+    resultsDiv.innerHTML = '<div class="stats" style="text-align:center;color:#888;">⏳ 加载历史走势数据...</div>';
+
+    // 异步加载历史数据
+    const history = await loadHistoryData(type);
+    const dataMap = BET_DATA_MAP[type];
+
+    // 构建走势数据（主要分析红球/前区/基本号）
+    let mainTrend = null;
+    let subTrend = null;
+    if (history.length > 0 && dataMap) {
+        const mainField = dataMap.groups[0].field;
+        const range = config.groups[0];
+        const freqMap = analyzeFrequencies(history, mainField, 80);
+        const coldHotMap = analyzeColdHot(history, mainField, range.max, 30);
+        mainTrend = { history, freqMap, coldHotMap, field: mainField };
+
+        // 也分析蓝球/后区/特别号走势
+        if (dataMap.groups.length > 1) {
+            const subField = dataMap.groups[1].field;
+            const subRange = config.groups[1];
+            const subFreq = analyzeFrequencies(history, subField, 80);
+            const subColdHot = analyzeColdHot(history, subField, subRange.max, 30);
+            subTrend = { history, freqMap: subFreq, coldHotMap: subColdHot, field: subField };
+        }
+    }
 
     const titleText = type === 'kuail8'
         ? `【${config.name}-${config.plays[parseInt(domCache.batchKL8Play.value)].name}】`
@@ -384,19 +772,54 @@ function generateBatch() {
     titleDiv.textContent = titleText;
     fragment.appendChild(titleDiv);
 
+    // 显示走势摘要
+    if (mainTrend) {
+        const trendInfo = document.createElement('div');
+        trendInfo.className = 'stats';
+        trendInfo.style.cssText = 'font-size:12px;color:#888;text-align:center;margin-bottom:8px;';
+        const hotNums = [...mainTrend.freqMap.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([n]) => fmt(n));
+        const coldSnums = [...mainTrend.coldHotMap.entries()]
+            .sort((a, b) => a[1] - b[1])
+            .slice(0, 5)
+            .map(([n]) => fmt(n));
+        trendInfo.textContent = `🔥 热号 ${hotNums.join(',')}  |  🧊 冷号 ${coldSnums.join(',')}`;
+        fragment.appendChild(trendInfo);
+    }
+
     if (type === 'kuail8') {
         const playCount = config.plays[parseInt(domCache.batchKL8Play.value)].count;
-        appendBatches(fragment, count, () => kl8GroupBallsHTML(playCount, config.cssClass));
+        const kl8Trend = mainTrend ? {
+            history, freqMap: mainTrend.freqMap, coldHotMap: mainTrend.coldHotMap, field: 'red'
+        } : null;
+        appendBatches(fragment, count, () => kl8GroupBallsHTML(playCount, config.cssClass, kl8Trend));
     } else {
-        // 使用智能策略生成每组号码
         appendBatches(fragment, count, () =>
             config.groups.map(g => {
-                if (g.key === 'blue' || g.key === 'back') {
-                    // 蓝球/后区/特别号数量少，用简单采样即可
+                // 蓝球/后区/特别号用副走势
+                const isSub = (g.key === 'blue' || g.key === 'back' || g.key === 'special');
+                if (isSub && subTrend) {
+                    return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
+                        trend: { ...subTrend }
+                    });
+                }
+                // 红球/前区/基本号用主走势
+                if (mainTrend) {
+                    return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
+                        zones: config.zones,
+                        sumRange: config.sumRange,
+                        parityRatios: config.parityRatios,
+                        spanRange: config.spanRange,
+                        trend: { ...mainTrend }
+                    });
+                }
+                // 无走势数据时回退原始策略
+                if (isSub) {
                     return sample(g.min, g.max, g.count)
                         .map(n => ballHTML(n, g.cssClass)).join('');
                 }
-                // 红球/前区/基本号用智能策略
                 return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
                     zones: config.zones,
                     sumRange: config.sumRange,

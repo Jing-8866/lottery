@@ -246,28 +246,44 @@ def merge_with_existing(key, new_data):
             log(f"{key}: 已有文件解析失败，将覆盖重建 ({e})", "WARN")
             existing = []
 
-    # 建立已有期号集合
-    existing_issues = set()
+    # 建立已有期号 → 旧数据的映射（用于继承日期等字段）
+    old_map = {}
     for item in existing:
-        # 不同彩种 issue 字段名不同：ssq/dlt/qlc/kl8 用 "issue"，qxc 也用 "issue"
         issue = item.get("issue", "")
         if issue:
-            existing_issues.add(issue)
+            old_map[issue] = item
 
-    # 追加新数据（去重）
-    added_count = 0
+    # 用新数据覆盖旧数据，并继承旧数据中的字段（如日期）
+    replaced_count = 0
+    merged_map = dict(old_map)  # 先复制旧数据
     for item in new_data:
         issue = item.get("issue", "")
-        if issue and issue not in existing_issues:
-            existing.append(item)
-            existing_issues.add(issue)
-            added_count += 1
+        if not issue:
+            continue
+
+        old_item = merged_map.get(issue, {})
+        # 如果新数据有值则用新数据，否则继承旧数据
+        merged = {}
+        for field in set(list(item.keys()) + list(old_item.keys())):
+            new_val = item.get(field)
+            old_val = old_item.get(field)
+            # 新数据有值优先；新数据为空/None 但旧数据有值则保留旧值
+            if new_val is not None and new_val != "" and new_val != []:
+                merged[field] = new_val
+            elif old_val is not None and old_val != "" and old_val != []:
+                merged[field] = old_val
+            else:
+                merged[field] = new_val if new_val is not None else old_val
+        merged_map[issue] = merged
+        replaced_count += 1
+
+    merged = list(merged_map.values())
 
     # 按期号降序排列（最新期在前）
-    existing.sort(key=lambda x: x.get("issue", ""), reverse=True)
+    merged.sort(key=lambda x: x.get("issue", ""), reverse=True)
 
-    log(f"{key}: 本次新增 {added_count} 期，累计 {len(existing)} 期")
-    return existing
+    log(f"{key}: 覆盖 {replaced_count} 期，累计 {len(merged)} 期")
+    return merged
 
 
 def main():
