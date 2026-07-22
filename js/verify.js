@@ -19,73 +19,132 @@ function comb(n, r) {
 // ==================== API 开奖号码获取 ====================
 
 /** 官方开奖数据API */
+/** 官方开奖数据API */
 const DRAW_API = 'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice';
-
-/** CORS代理列表（浏览器file://协议下跨域获取数据用） */
-const CORS_PROXIES = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
-    'https://api-proxy.m_dev.workers.dev/?url=',
-    'https://cors-anywhere.herokuapp.com/',
-];
 
 /** 彩种对应的API参数名 */
 const API_NAME_MAP = {
-    ssq: 'ssq',    // 双色球
-    qlc: 'qlc',    // 七乐彩
-    kl8: 'kl8',    // 快乐8
-    dlt: 'dlt',    // 大乐透（体彩，通过cwl API也支持）
-    qxc: 'qxc'     // 七星彩
+    ssq: 'ssq',
+    qlc: 'qlc',
+    kl8: 'kl8',
+    dlt: 'dlt',
+    qxc: 'qxc'
+};
+
+/** 500.com API路径（HTML格式，兜底用） */
+const FIFTY_SITE = 'https://datachart.500.com';
+const FIFTY_PATHS = {
+    ssq: '/ssq/history/newinc/history.php?limit=1',
+    kl8: '/kl8/history/newinc/history.php?limit=1',
+    qlc: '/qlc/history/newinc/history.php?limit=1',
+    dlt: '/dlt/history/newinc/history.php?limit=1',
+    qxc: '/qxc/history/newinc/history.php?limit=1'
 };
 
 /**
- * 从官方渠道获取开奖号码
- * @param {string} lotteryId - 彩票类型ID (ssq/dlt/kl8/qlc/qxc)
- * @param {string} [issue] - 可选期号，为空则获取最新一期
- * @returns {Promise<object>} 开奖数据 { drawIssue, drawDate, groups: [{key, nums}], raw }
+ * 获取开奖号码
+ * 优先 500.com（国内速度快），失败后尝试 cwl.gov.cn 官方接口。
  */
 async function fetchDrawResult(lotteryId, issue) {
     const name = API_NAME_MAP[lotteryId];
     if (!name) throw new Error('不支持的彩票类型');
 
-    const issueCount = (issue && issue.trim()) ? 50 : 1;
-    const apiUrl = `${DRAW_API}?name=${name}&issueCount=${issueCount}`;
-
-    // 按优先级尝试多个策略：直接请求 → CORS代理1 → CORS代理2
-    const strategies = [
-        // 策略1：直接请求（部分浏览器/环境可直接跨域）
-        () => fetchWithTimeout(apiUrl, {
-            headers: { 'Referer': 'https://www.cwl.gov.cn/', 'Accept': 'application/json' }
-        }),
-        // 策略2~N：通过CORS代理转发
-        ...CORS_PROXIES.map(proxy =>
-            () => fetchWithTimeout(proxy + encodeURIComponent(apiUrl))
-        )
-    ];
-
-    let lastError;
-    for (const strategy of strategies) {
-        try {
-            const resp = await strategy();
-            if (resp.status === 404) throw new Error('NOT_SUPPORTED');
-            if (!resp.ok) continue;
-            const text = await resp.text();
-            const data = JSON.parse(text);
-            if (data && data.state === 0 && data.result && data.result.length > 0) {
-                return await findIssueOrLatest(data, lotteryId, issue);
+    // ---------- 优先 500.com（仅最新，速度快） ----------
+    if (!issue || !issue.trim()) {
+        const path = FIFTY_PATHS[lotteryId];
+        if (path) {
+            const html = await fetchHtml(`${FIFTY_SITE}${path}`);
+            if (html) {
+                const parsed = parse500Result(lotteryId, html);
+                if (parsed) return parsed;
             }
-        } catch (e) {
-            if (e.message === 'NOT_SUPPORTED') {
-                throw new Error('该彩票类型暂不支持自动获取开奖号码。\n请前往 https://www.lottery.gov.cn/ 查询后手动输入。');
-            }
-            lastError = e;
         }
     }
-    throw new Error(lastError
-        ? '获取开奖号码失败：' + (lastError.message === 'Failed to fetch'
-            ? '浏览器安全策略限制，请尝试以下任一方法：\n① 使用 Chrome 浏览器，安装 "CORS Unblock" 扩展\n② 或将本文件部署到 Web 服务器上通过 http:// 访问'
-            : lastError.message)
-        : '获取开奖号码失败，请手动输入。');
+
+    // ---------- 兜底 cwl.gov.cn（支持按期号查询） ----------
+    const issueCount = (issue && issue.trim()) ? 50 : 1;
+    const cwlUrl = `${DRAW_API}?name=${name}&issueCount=${issueCount}`;
+
+    const ctrl = new AbortController();
+    const tm = setTimeout(() => ctrl.abort(), 8000);
+    try {
+        const resp = await fetch(cwlUrl, {
+            signal: ctrl.signal,
+            headers: { 'Referer': 'https://www.cwl.gov.cn/', 'Accept': 'application/json' }
+        });
+        clearTimeout(tm);
+        if (resp.status === 404) throw new Error('NOT_SUPPORTED');
+        if (!resp.ok) throw new Error('HTTP_' + resp.status);
+        const data = await resp.json();
+        if (data && data.state === 0 && data.result && data.result.length > 0) {
+            return await findIssueOrLatest(data, lotteryId, issue);
+        }
+    } catch (e) {
+        clearTimeout(tm);
+        if (e.message === 'NOT_SUPPORTED') throw e;
+    }
+
+    throw new Error('无法获取开奖号码，请在右侧手动输入。');
+}
+
+/** 用 no-cors 方式抓取 HTML 页面，返回文本或 null */
+async function fetchHtml(url) {
+    const ctrl = new AbortController();
+    const tm = setTimeout(() => ctrl.abort(), 8000);
+    try {
+        const resp = await fetch(url, {
+            signal: ctrl.signal,
+            mode: 'cors',
+            headers: { 'Accept': 'text/html' }
+        });
+        clearTimeout(tm);
+        return resp.ok ? await resp.text() : null;
+    } catch {
+        clearTimeout(tm);
+        return null;
+    }
+}
+
+/** 解析 500.com HTML 表格，提取最新一条开奖数据 */
+function parse500Result(lotteryId, html) {
+    // 去掉所有 HTML 标签，保留纯文本行
+    const rows = html.replace(/<[^>]+>/g, '|').split(/\n/);
+    let dataLine = null;
+    for (const row of rows) {
+        const cells = row.split('|').map(s => s.trim()).filter(Boolean);
+        // 数据行特征：第一格是纯数字期号（如 26083）
+        if (cells.length >= 8 && /^\d{5,6}$/.test(cells[0])) {
+            dataLine = cells;
+            break;
+        }
+    }
+    if (!dataLine) return null;
+
+    const common = { drawIssue: dataLine[0], drawDate: dataLine[dataLine.length - 1] || '' };
+
+    switch (lotteryId) {
+        case 'ssq':
+            return { ...common, groups: [
+                { key: 'red', nums: dataLine.slice(1, 7).map(Number) },
+                { key: 'blue', nums: [Number(dataLine[7])] }
+            ]};
+        case 'dlt':
+            return { ...common, groups: [
+                { key: 'front', nums: dataLine.slice(1, 6).map(Number) },
+                { key: 'back', nums: dataLine.slice(6, 8).map(Number) }
+            ]};
+        case 'qlc':
+            return { ...common, groups: [
+                { key: 'basic', nums: dataLine.slice(1, 8).map(Number) },
+                { key: 'special', nums: [Number(dataLine[8])] }
+            ]};
+        case 'kl8':
+            return { ...common, groups: [
+                { key: 'numbers', nums: dataLine.slice(1, 21).map(Number) }
+            ]};
+        default:
+            return null;
+    }
 }
 
 /** 在返回的开奖数据中查找指定期号，未指定则返回最新 */
@@ -115,7 +174,7 @@ async function findIssueOrLatest(data, lotteryId, issue) {
 }
 
 /** 带超时的fetch */
-function fetchWithTimeout(url, options = {}, timeout = 20000) {
+function fetchWithTimeout(url, options = {}, timeout = 10000) {
     return Promise.race([
         fetch(url, { ...options, mode: 'cors', credentials: 'omit' }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时')), timeout))
