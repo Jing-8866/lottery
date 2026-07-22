@@ -27,8 +27,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 lxml chardet
 
-      - name: 运行 crawl_official.py 脚本（官方 API）
-        run: python py/crawl_official.py
+      - name: 运行 crawl.py 脚本（官方 API）
+        run: python py/crawl.py
 
       - name: 提交并推送生成的数据到 data-auto 分支
         run: |
