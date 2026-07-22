@@ -14,8 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 检出仓库代码
+      - name: 检出仓库代码（含完整历史）
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 设置 Python 环境
         uses: actions/setup-python@v5
@@ -35,11 +37,16 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 切换（或创建）到 data-auto 分支
-          git checkout data-auto 2>/dev/null || git checkout --orphan data-auto
+          # 先获取远程 data-auto 分支（可能已有之前的提交）
+          git fetch origin data-auto 2>/dev/null || true
 
-          # 如果是 orphan（全新）分支，先清理暂存区
-          if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+          # 切换到 data-auto 分支（本地已有则切换，没有则基于远程创建，都没有则新建 orphan）
+          if git show-ref --verify --quiet refs/remotes/origin/data-auto; then
+            git checkout -B data-auto origin/data-auto
+          elif git show-ref --verify --quiet refs/heads/data-auto; then
+            git checkout data-auto
+          else
+            git checkout --orphan data-auto
             git rm -rf . 2>/dev/null || true
           fi
 
@@ -50,5 +57,5 @@ jobs:
           git add -f data/
           git diff --staged --quiet || git commit -m "Auto update lottery data $(date -u +'%Y-%m-%d %H:%M')"
 
-          # 推送到 data-auto 分支（而非 main）
+          # 推送到 data-auto 分支
           git push origin data-auto
