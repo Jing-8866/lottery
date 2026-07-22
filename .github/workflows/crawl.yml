@@ -34,6 +34,9 @@ jobs:
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/
+          # 确保 data/ 目录存在，避免 git add 报错
+          mkdir -p data
+          # -f 强制添加被 .gitignore 忽略的文件
+          git add -f data/
           git diff --staged --quiet || git commit -m "Auto update lottery data $(date -u +'%Y-%m-%d %H:%M')"
           git push
