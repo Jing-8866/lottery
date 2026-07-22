@@ -192,6 +192,68 @@ def parse_qxc(soup):
 
 # ========== 彩种分发 ==========
 
+# ========== 500.com 开奖结果页面（带日期，用于补充 kl8/qxc 缺失的日期）==========
+
+KAIJIANG_URLS = {
+    "kl8": "https://kaijiang.500.com/kl8.shtml",
+    "qxc": "https://kaijiang.500.com/qxc.shtml",
+}
+
+
+def fetch_kaijiang_date(key):
+    """从 kaijiang.500.com 提取最新一期开奖日期"""
+    url = KAIJIANG_URLS.get(key)
+    if not url:
+        return None, ""
+
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        if r.status_code != 200:
+            return None, ""
+        # 页面编码 gb2312
+        html = r.content.decode("gbk", errors="ignore")
+
+        import re
+        # 提取期号（可能被 HTML 标签包裹，如 <strong>26083</strong>期）
+        # 策略：先去掉 HTML 标签，再找数字+期 的组合
+        text = re.sub(r'<[^>]+>', '', html)
+        issue_m = re.search(r'(\d{5,7})\s*期', text)
+        issue = issue_m.group(1) if issue_m else ""
+
+        # 提取日期：开奖日期：2026年7月21日
+        date_m = re.search(r'开奖日期[：:]\s*(\d{4})年(\d+)月(\d+)日', html)
+        if date_m:
+            date_str = f"{date_m.group(1)}-{int(date_m.group(2)):02d}-{int(date_m.group(3)):02d}"
+            return issue, date_str
+
+        return issue, ""
+    except Exception as e:
+        log(f"获取开奖日期失败 ({key}): {e}", "WARN")
+        return None, ""
+
+
+def apply_kaijiang_date(data, key):
+    """
+    从 kaijiang 页面获取日期，应用到已解析的数据中。
+    匹配期号后设置日期，确保最新一期有日期。
+    注意：datachart 的期号可能带 "20" 前缀（如 2026083），
+    而 kaijiang 页面不带前缀（如 26083），需同时匹配两种格式。
+    """
+    kj_issue, kj_date = fetch_kaijiang_date(key)
+    if not kj_date or not kj_issue:
+        return data
+
+    # 尝试匹配原始期号，以及带 "20" 前缀的期号
+    possible_issues = {kj_issue, "20" + kj_issue}
+
+    for item in data:
+        if item.get("issue") in possible_issues:
+            item["date"] = kj_date
+            log(f"{key}: 从开奖结果页补充日期 {item['issue']} -> {kj_date}")
+            break
+    return data
+
+
 PARSERS = {
     "ssq": parse_ssq,
     "dlt": parse_dlt,
@@ -199,6 +261,8 @@ PARSERS = {
     "kl8": parse_kl8,
     "qxc": parse_qxc,
 }
+
+PARSERS_NEED_DATE = {"kl8", "qxc"}
 
 
 def crawl_one(key):
@@ -218,6 +282,10 @@ def crawl_one(key):
     soup = BeautifulSoup(html, "lxml")
     parser = PARSERS[key]
     data = parser(soup)
+
+    # kl8/qxc 从 kaijiang 页面补充最新一期日期
+    if key in PARSERS_NEED_DATE:
+        data = apply_kaijiang_date(data, key)
 
     log(f"{key}: 解析到 {len(data)} 期数据")
     return data
