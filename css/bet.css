@@ -217,17 +217,20 @@ h1 {
 .back-link a {
     display: inline-block;
     padding: 8px 18px;
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background: rgba(255, 255, 255, 0.9);
+    color: #667eea;
+    font-weight: 600;
     text-decoration: none;
+    border: 2px solid #667eea;
     border-radius: 8px;
     font-size: 14px;
-    backdrop-filter: blur(4px);
-    transition: background 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    transition: background 0.3s, box-shadow 0.3s;
 }
 
 .back-link a:hover {
-    background: rgba(255, 255, 255, 0.35);
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
 @media (max-width: 600px) {

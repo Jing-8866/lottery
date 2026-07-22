@@ -43,48 +43,66 @@ const FIFTY_PATHS = {
 
 /**
  * 获取开奖号码
- * 优先 500.com（国内速度快），失败后尝试 cwl.gov.cn 官方接口。
+ *
+ * 策略链（按优先级）：
+ *   1. 500.com 直连                    → 速度快，但可能被 CORS 拦截
+ *   2. corsproxy.io → 500.com          → 绕过 CORS，国内可达
+ *   3. cwl.gov.cn 直连                  → 官方 JSON 接口
+ *   4. corsproxy.io → cwl.gov.cn       → 兜底
  */
 async function fetchDrawResult(lotteryId, issue) {
     const name = API_NAME_MAP[lotteryId];
     if (!name) throw new Error('不支持的彩票类型');
 
-    // ---------- 优先 500.com（仅最新，速度快） ----------
-    if (!issue || !issue.trim()) {
-        const path = FIFTY_PATHS[lotteryId];
-        if (path) {
-            const html = await fetchHtml(`${FIFTY_SITE}${path}`);
-            if (html) {
-                const parsed = parse500Result(lotteryId, html);
-                if (parsed) return parsed;
-            }
-        }
-    }
-
-    // ---------- 兜底 cwl.gov.cn（支持按期号查询） ----------
     const issueCount = (issue && issue.trim()) ? 50 : 1;
     const cwlUrl = `${DRAW_API}?name=${name}&issueCount=${issueCount}`;
+    const fivePath = FIFTY_PATHS[lotteryId];
+    const fiveUrl = `${FIFTY_SITE}${fivePath}`;
 
+    // 只查最新时尝试 500.com（速度快）
+    if (!issue && fivePath) {
+        // ① 500.com 直连（VS Code 预览等环境可用）
+        const html = await fetchHtml(fiveUrl);
+        if (html) { const p = parse500Result(lotteryId, html); if (p) return p; }
+
+        // ② corsproxy.io → 500.com（绕过 CORS）
+        const proxyHtml = await fetchHtml(`https://corsproxy.io/?${encodeURIComponent(fiveUrl)}`);
+        if (proxyHtml) { const p = parse500Result(lotteryId, proxyHtml); if (p) return p; }
+    }
+
+    // ③ cwl.gov.cn 直连
+    const r1 = await tryFetch(cwlUrl, lotteryId, issue);
+    if (r1) return r1;
+
+    // ④ corsproxy.io → cwl.gov.cn
+    const r2 = await tryFetch(`https://corsproxy.io/?${encodeURIComponent(cwlUrl)}`, lotteryId, issue);
+    if (r2) return r2;
+
+    throw new Error('获取失败，请手动输入开奖号码');
+}
+
+/** 尝试从 URL 获取开奖数据，成功返回解析结果，失败返回 null */
+async function tryFetch(url, lotteryId, issue) {
     const ctrl = new AbortController();
-    const tm = setTimeout(() => ctrl.abort(), 8000);
+    const tm = setTimeout(() => ctrl.abort(), 6000);
     try {
-        const resp = await fetch(cwlUrl, {
+        const resp = await fetch(url, {
             signal: ctrl.signal,
-            headers: { 'Referer': 'https://www.cwl.gov.cn/', 'Accept': 'application/json' }
+            headers: url.includes('cwl.gov.cn')
+                ? { 'Referer': 'https://www.cwl.gov.cn/', 'Accept': 'application/json' }
+                : { 'Accept': 'application/json' }
         });
         clearTimeout(tm);
-        if (resp.status === 404) throw new Error('NOT_SUPPORTED');
-        if (!resp.ok) throw new Error('HTTP_' + resp.status);
-        const data = await resp.json();
+        if (!resp.ok) return null;
+        const text = await resp.text();
+        const data = JSON.parse(text);
         if (data && data.state === 0 && data.result && data.result.length > 0) {
             return await findIssueOrLatest(data, lotteryId, issue);
         }
-    } catch (e) {
+    } catch {
         clearTimeout(tm);
-        if (e.message === 'NOT_SUPPORTED') throw e;
     }
-
-    throw new Error('无法获取开奖号码，请在右侧手动输入。');
+    return null;
 }
 
 /** 用 no-cors 方式抓取 HTML 页面，返回文本或 null */
@@ -871,10 +889,19 @@ async function fetchDrawAndFill(button) {
             setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
         }
     } catch (e) {
-        alert(e.message);
+        // 页内提示，不弹 alert，不打断用户操作
+        const issueEl = document.getElementById(`verify-draw-info-${id}`);
+        if (issueEl) {
+            issueEl.textContent = '⚠️ 自动获取不可用，已在右侧预填示例号码，修改后点击"核对中奖"即可';
+            issueEl.style.display = 'inline';
+            issueEl.style.color = '#e67e22';
+            setTimeout(() => {
+                issueEl.style.color = '#667eea';
+            }, 4000);
+        }
         if (btn) {
-            btn.textContent = '❌ 获取失败';
-            setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+            btn.textContent = '📡 获取开奖';
+            btn.disabled = false;
         }
     }
 }
