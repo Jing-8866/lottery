@@ -101,12 +101,11 @@
 
                 <div class="fetch-row">
                     <div class="fetch-left">
-                        <input type="text" id="verify-issue-dlt" class="issue-input" placeholder="期号(留空=最新)" maxlength="7" disabled>
+                        <input type="text" id="verify-issue-dlt" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
                         <span class="draw-info" id="verify-draw-info-dlt"></span>
                     </div>
-                    <button class="fetch-btn tc-disabled" onclick="return false;">📡 获取开奖</button>
+                    <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
                 </div>
-                <div class="tc-hint">⚠️ 体彩暂不支持自动获取开奖号码，请前往 <a href="https://www.lottery.gov.cn/" target="_blank">lottery.gov.cn</a> 查询后手动输入</div>
 
                 <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
             </div>
@@ -227,12 +226,11 @@
 
                 <div class="fetch-row">
                     <div class="fetch-left">
-                        <input type="text" id="verify-issue-qxc" class="issue-input" placeholder="期号(留空=最新)" maxlength="7" disabled>
+                        <input type="text" id="verify-issue-qxc" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
                         <span class="draw-info" id="verify-draw-info-qxc"></span>
                     </div>
-                    <button class="fetch-btn tc-disabled" onclick="return false;">📡 获取开奖</button>
+                    <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
                 </div>
-                <div class="tc-hint">⚠️ 体彩暂不支持自动获取开奖号码，请前往 <a href="https://www.lottery.gov.cn/" target="_blank">lottery.gov.cn</a> 查询后手动输入</div>
 
                 <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
             </div>

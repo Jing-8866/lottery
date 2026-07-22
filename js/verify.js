@@ -19,19 +19,7 @@ function comb(n, r) {
 // ==================== API 开奖号码获取 ====================
 
 /** 官方开奖数据API */
-/** 官方开奖数据API */
-const DRAW_API = 'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice';
-
-/** 彩种对应的API参数名 */
-const API_NAME_MAP = {
-    ssq: 'ssq',
-    qlc: 'qlc',
-    kl8: 'kl8',
-    dlt: 'dlt',
-    qxc: 'qxc'
-};
-
-/** 500.com API路径（HTML格式，兜底用） */
+/** 500.com API路径（HTML格式） */
 const FIFTY_SITE = 'https://datachart.500.com';
 const FIFTY_PATHS = {
     ssq: '/ssq/history/newinc/history.php?limit=1',
@@ -42,73 +30,33 @@ const FIFTY_PATHS = {
 };
 
 /**
- * 获取开奖号码
+ * 获取开奖号码（仅最新期）
  *
- * 策略链（按优先级）：
- *   1. 500.com 直连                    → 速度快，但可能被 CORS 拦截
- *   2. corsproxy.io → 500.com          → 绕过 CORS，国内可达
- *   3. cwl.gov.cn 直连                  → 官方 JSON 接口
- *   4. corsproxy.io → cwl.gov.cn       → 兜底
+ * 策略链：
+ *   1. corsproxy.io → 500.com  ← GitHub Pages 等普通浏览器绕过 CORS
+ *   2. 500.com 直连              ← VS Code 预览调试兜底
  */
-async function fetchDrawResult(lotteryId, issue) {
-    const name = API_NAME_MAP[lotteryId];
-    if (!name) throw new Error('不支持的彩票类型');
+async function fetchDrawResult(lotteryId) {
+    const path = FIFTY_PATHS[lotteryId];
+    if (!path) throw new Error('不支持的彩票类型');
 
-    const issueCount = (issue && issue.trim()) ? 50 : 1;
-    const cwlUrl = `${DRAW_API}?name=${name}&issueCount=${issueCount}`;
-    const fivePath = FIFTY_PATHS[lotteryId];
-    const fiveUrl = `${FIFTY_SITE}${fivePath}`;
+    const url = `${FIFTY_SITE}${path}`;
 
-    // 只查最新时尝试 500.com（速度快）
-    if (!issue && fivePath) {
-        // ① 500.com 直连（VS Code 预览等环境可用）
-        const html = await fetchHtml(fiveUrl);
-        if (html) { const p = parse500Result(lotteryId, html); if (p) return p; }
+    // ① corsproxy.io → 500.com（GitHub Pages / 普通浏览器）
+    const proxyHtml = await fetchHtml(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+    if (proxyHtml) { const p = parse500Result(lotteryId, proxyHtml); if (p) return p; }
 
-        // ② corsproxy.io → 500.com（绕过 CORS）
-        const proxyHtml = await fetchHtml(`https://corsproxy.io/?${encodeURIComponent(fiveUrl)}`);
-        if (proxyHtml) { const p = parse500Result(lotteryId, proxyHtml); if (p) return p; }
-    }
-
-    // ③ cwl.gov.cn 直连
-    const r1 = await tryFetch(cwlUrl, lotteryId, issue);
-    if (r1) return r1;
-
-    // ④ corsproxy.io → cwl.gov.cn
-    const r2 = await tryFetch(`https://corsproxy.io/?${encodeURIComponent(cwlUrl)}`, lotteryId, issue);
-    if (r2) return r2;
+    // ② 500.com 直连（VS Code 预览调试）
+    const html = await fetchHtml(url);
+    if (html) { const p = parse500Result(lotteryId, html); if (p) return p; }
 
     throw new Error('获取失败，请手动输入开奖号码');
-}
-
-/** 尝试从 URL 获取开奖数据，成功返回解析结果，失败返回 null */
-async function tryFetch(url, lotteryId, issue) {
-    const ctrl = new AbortController();
-    const tm = setTimeout(() => ctrl.abort(), 6000);
-    try {
-        const resp = await fetch(url, {
-            signal: ctrl.signal,
-            headers: url.includes('cwl.gov.cn')
-                ? { 'Referer': 'https://www.cwl.gov.cn/', 'Accept': 'application/json' }
-                : { 'Accept': 'application/json' }
-        });
-        clearTimeout(tm);
-        if (!resp.ok) return null;
-        const text = await resp.text();
-        const data = JSON.parse(text);
-        if (data && data.state === 0 && data.result && data.result.length > 0) {
-            return await findIssueOrLatest(data, lotteryId, issue);
-        }
-    } catch {
-        clearTimeout(tm);
-    }
-    return null;
 }
 
 /** 用 no-cors 方式抓取 HTML 页面，返回文本或 null */
 async function fetchHtml(url) {
     const ctrl = new AbortController();
-    const tm = setTimeout(() => ctrl.abort(), 8000);
+    const tm = setTimeout(() => ctrl.abort(), 6000);
     try {
         const resp = await fetch(url, {
             signal: ctrl.signal,
@@ -163,86 +111,6 @@ function parse500Result(lotteryId, html) {
         default:
             return null;
     }
-}
-
-/** 在返回的开奖数据中查找指定期号，未指定则返回最新 */
-async function findIssueOrLatest(data, lotteryId, issue) {
-    if (issue && issue.trim()) {
-        const cleanIssue = issue.trim();
-        let matched = data.result.find(r => r.code === cleanIssue);
-        if (!matched && data.result.length >= 50) {
-            // 50期内没找到，扩大范围到200期再试
-            try {
-                const resp = await fetchWithTimeout(
-                    `${DRAW_API}?name=${API_NAME_MAP[lotteryId]}&issueCount=200`,
-                    { headers: { 'Referer': 'https://www.cwl.gov.cn/' } }
-                );
-                if (resp.ok) {
-                    const data2 = JSON.parse(await resp.text());
-                    if (data2 && data2.state === 0 && data2.result) {
-                        matched = data2.result.find(r => r.code === cleanIssue);
-                    }
-                }
-            } catch (_) { /* 扩大查询失败则保持原结果 */ }
-        }
-        if (matched) return parseApiResult(lotteryId, matched);
-        throw new Error(`未查到 ${cleanIssue} 期的开奖记录，请确认期号是否正确`);
-    }
-    return parseApiResult(lotteryId, data.result[0]);
-}
-
-/** 带超时的fetch */
-function fetchWithTimeout(url, options = {}, timeout = 10000) {
-    return Promise.race([
-        fetch(url, { ...options, mode: 'cors', credentials: 'omit' }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时')), timeout))
-    ]);
-}
-
-/**
- * 解析API返回的开奖数据
- */
-function parseApiResult(lotteryId, item) {
-    const result = {
-        drawIssue: item.code || '',
-        drawDate: (item.date || '').replace(/\([^)]*\)$/, ''), // 去掉末尾的(日)
-        groups: []
-    };
-
-    switch (lotteryId) {
-        case 'ssq':
-            result.groups.push(
-                { key: 'red', nums: (item.red || '').split(',').filter(Boolean).map(Number) },
-                { key: 'blue', nums: (item.blue || '').split(',').filter(Boolean).map(Number) }
-            );
-            break;
-        case 'dlt':
-            // 大乐透: API返回 front(前区) back(后区)
-            result.groups.push(
-                { key: 'front', nums: (item.front || item.red || '').split(',').filter(Boolean).map(Number) },
-                { key: 'back', nums: (item.back || item.blue || '').split(',').filter(Boolean).map(Number) }
-            );
-            break;
-        case 'qlc':
-            // 七乐彩: red=基本号, blue=特别号
-            result.groups.push(
-                { key: 'basic', nums: (item.red || '').split(',').filter(Boolean).map(Number) },
-                { key: 'special', nums: (item.blue || '').split(',').filter(Boolean).map(Number) }
-            );
-            break;
-        case 'kl8': {
-            // 快乐8: red包含20个号码
-            const allNums = (item.red || '').split(',').filter(Boolean).map(Number);
-            result.groups.push({ key: 'numbers', nums: allNums });
-            break;
-        }
-        case 'qxc':
-            // 七星彩: 7位数字
-            const digits = (item.red || '').replace(/[^0-9]/g, '').split('').map(Number);
-            result.groups.push({ key: 'digits', nums: digits.slice(0, 7) });
-            break;
-    }
-    return result;
 }
 
 // ==================== 彩种配置 ====================
@@ -875,7 +743,7 @@ async function fetchDrawAndFill(button) {
     }
 
     try {
-        const result = await fetchDrawResult(id, issue || undefined);
+        const result = await fetchDrawResult(id);
         fillDrawNumbers(id, result);
         // 显示期号信息
         const issueEl = document.getElementById(`verify-draw-info-${id}`);
