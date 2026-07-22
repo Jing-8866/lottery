@@ -44,13 +44,13 @@ const FIELD_MAP = {
     ]},
     qlc: { file: 'qlc.json', groups: [
         { key: 'basic',   src: 'red' },
-        { key: 'special', src: 'special' }
+        { key: 'special', src: 'blue' }
     ]},
     kl8: { file: 'kl8.json', groups: [
         { key: 'numbers', src: 'red' }
     ]},
     qxc: { file: 'qxc.json', groups: [
-        { key: 'digits', src: 'numbers' }
+        { key: 'digits', src: 'red' }
     ]}
 };
 
