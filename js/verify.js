@@ -21,12 +21,16 @@ function comb(n, r) {
 /**
  * ═══════════════════════════════════════════════════════════════
  *  数据源：GitHub Actions 每日自动抓取，输出到 data/*.json
- *  同域读取，无 CORS 限制，同时保留手工输入作为备选
+ *  - 本地开发：从 data/ 相对路径读取
+ *  - 线上部署：从 data-auto 分支读取
+ *  同时保留手工输入作为备选
  * ═══════════════════════════════════════════════════════════════
  */
 
-/** JSON 数据所在路径（相对 HTML 文件所在目录） */
-const DATA_PATH = 'data';
+/** 本地开发路径（与 py 目录同级） */
+const DATA_PATH_LOCAL = 'data';
+/** 线上部署路径（从 data-auto 分支读取） */
+const DATA_PATH_REMOTE = 'https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data';
 
 /** 彩种 → JSON 字段映射 */
 const FIELD_MAP = {
@@ -51,7 +55,7 @@ const FIELD_MAP = {
 };
 
 /**
- * 从本地 JSON 文件获取开奖号码
+ * 从 JSON 文件获取开奖号码（先尝试本地，失败则走 data-auto 分支）
  * @param {string} lotteryId  彩种ID
  * @param {string} [issue]    可选期号，留空返回最新一期
  * @returns {Promise<{drawIssue, drawDate, groups}>}
@@ -60,8 +64,18 @@ async function fetchDrawResult(lotteryId, issue) {
     const cfg = FIELD_MAP[lotteryId];
     if (!cfg) throw new Error('不支持的彩票类型');
 
-    const resp = await fetch(`${DATA_PATH}/${cfg.file}`);
-    if (!resp.ok) throw new Error(`无法读取 ${cfg.file}`);
+    // 先尝试本地路径（本地开发调试用）
+    let resp;
+    try {
+        resp = await fetch(`${DATA_PATH_LOCAL}/${cfg.file}`);
+    } catch {
+        resp = null;
+    }
+    if (!resp || !resp.ok) {
+        // 本地失败，尝试 data-auto 分支（线上部署用）
+        resp = await fetch(`${DATA_PATH_REMOTE}/${cfg.file}`);
+        if (!resp.ok) throw new Error(`无法读取 ${cfg.file}`);
+    }
 
     const json = await resp.json();
     const list = json.data || [];
@@ -289,7 +303,7 @@ function hideAllVerifyPanels() {
     document.querySelectorAll('.lottery-panel').forEach(p => p.classList.remove('active'));
 }
 
-function verifySwitchLottery() {
+async function verifySwitchLottery() {
     const id = document.getElementById('verify-lottery').value;
     hideAllVerifyPanels();
     if (!id) return;
@@ -301,10 +315,11 @@ function verifySwitchLottery() {
     document.getElementById('verify-result-section').classList.remove('show');
     document.getElementById('verify-result-section').style.display = 'none';
 
-    // 隐藏所有draw-info，显示当前选中的
+    // 隐藏所有draw-info
     document.querySelectorAll('.draw-info').forEach(el => el.style.display = 'none');
-    const drawInfo = document.getElementById(`verify-draw-info-${id}`);
-    if (drawInfo) drawInfo.style.display = 'none';
+
+    // 自动获取最新期号的开奖数据
+    await fetchDrawAndFill();
 }
 
 // ==================== 快乐8玩法切换 ====================
@@ -700,6 +715,156 @@ window.onload = function () {
     document.getElementById('verify-lottery').value = 'ssq';
     verifySwitchLottery();
 };
+
+// ==================== 奖金对照浮窗 ====================
+
+/** 显示指定彩种的奖金对照表 */
+function showPrizeTable(lotteryId) {
+    const cfg = verifyTypeConfig[lotteryId];
+    if (!cfg) return;
+
+    document.getElementById('prize-modal-title').textContent = `🎯 ${cfg.name} - 奖金对照表`;
+    const body = document.getElementById('prize-modal-body');
+    body.innerHTML = '';
+
+    if (lotteryId === 'kl8') {
+        // 快乐8：网格布局
+        renderKL8PrizeTable(cfg.prizes, body);
+    } else {
+        // 其他彩种：表格布局
+        renderNormalPrizeTable(cfg, body);
+    }
+
+    document.getElementById('prize-overlay').classList.add('show');
+}
+
+/** 渲染普通彩种的奖金表格 */
+function renderNormalPrizeTable(cfg, container) {
+    const table = document.createElement('table');
+    table.className = 'prize-table';
+
+    // 表头
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    const headers = ['奖项', '中奖条件', '奖金'];
+    headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // 表体
+    const tbody = document.createElement('tbody');
+    cfg.prizes.forEach(p => {
+        const tr = document.createElement('tr');
+
+        // 奖项名
+        const tdRank = document.createElement('td');
+        tdRank.textContent = p.rank;
+        tr.appendChild(tdRank);
+
+        // 中奖条件
+        const tdCond = document.createElement('td');
+        tdCond.textContent = buildPrizeCondition(cfg, p);
+        tr.appendChild(tdCond);
+
+        // 奖金
+        const tdPrize = document.createElement('td');
+        const span = document.createElement('span');
+        if (typeof p.prize === 'string') {
+            span.className = 'prize-float';
+            span.textContent = p.prize;
+        } else {
+            span.className = 'prize-amount';
+            span.textContent = `${p.prize.toLocaleString()}元`;
+        }
+        tdPrize.appendChild(span);
+        tr.appendChild(tdPrize);
+
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    container.appendChild(table);
+}
+
+/** 构建中奖条件文本 */
+function buildPrizeCondition(cfg, prize) {
+    const parts = [];
+    cfg.groups.forEach(g => {
+        const val = prize[g.key];
+        if (val !== undefined) {
+            const label = g.label.replace(/[号码]/g, '').trim();
+            parts.push(`${label}中${val}个`);
+        }
+    });
+    return parts.join(' + ');
+}
+
+/** 渲染快乐8奖金网格 */
+function renderKL8PrizeTable(prizes, container) {
+    // 玩法名称映射
+    const playNames = { 1:'选一', 2:'选二', 3:'选三', 4:'选四', 5:'选五',
+                        6:'选六', 7:'选七', 8:'选八', 9:'选九', 10:'选十' };
+
+    // 按玩法分组
+    const groups = {};
+    Object.keys(prizes).forEach(key => {
+        const [play, match] = key.split('-').map(Number);
+        if (!groups[play]) groups[play] = [];
+        groups[play].push({ match, prize: prizes[key] });
+    });
+
+    const grid = document.createElement('div');
+    grid.className = 'kl8-prize-grid';
+
+    Object.keys(groups).sort((a, b) => a - b).forEach(play => {
+        const items = groups[play];
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'kl8-prize-item';
+            div.innerHTML = `
+                <div class="kl8-play">${playNames[play]}</div>
+                <div>中${item.match}个</div>
+                <div class="kl8-money">${item.prize}元</div>
+            `;
+            grid.appendChild(div);
+        });
+    });
+
+    container.appendChild(grid);
+}
+
+/** 关闭奖金对照浮窗 */
+function closePrizeTable(event) {
+    // 点击遮罩或关闭按钮时关闭
+    if (!event || event.target === event.currentTarget || !event.target) {
+        document.getElementById('prize-overlay').classList.remove('show');
+    }
+}
+
+// ==================== 清空期号 ====================
+
+/** 清空指定输入框的值 */
+function clearMyInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (input) {
+        input.value = '';
+        input.focus();
+    }
+}
+
+/** 清空指定彩种的期号输入框，并重新获取最新期号数据 */
+function clearIssueInput(lotteryId) {
+    const input = document.getElementById(`verify-issue-${lotteryId}`);
+    if (input) {
+        input.value = '';
+        input.focus();
+    }
+    // 自动重新获取最新期号
+    fetchDrawAndFill();
+}
 
 // ==================== 自动获取开奖号码 ====================
 

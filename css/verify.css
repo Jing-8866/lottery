@@ -165,6 +165,48 @@ input[type="number"]:focus {
     outline: none;
 }
 
+/* 输入框内部清空按钮容器 */
+.input-clear-wrap {
+    position: relative;
+    display: block;
+}
+
+.input-clear-wrap input {
+    padding-right: 34px !important;
+}
+
+.input-clear-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #d0d0d0;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s;
+    z-index: 1;
+}
+
+.input-clear-wrap:hover .input-clear-btn,
+.input-clear-wrap input:focus ~ .input-clear-btn,
+.input-clear-btn.show {
+    display: inline-flex;
+}
+
+.input-clear-btn:hover {
+    background: #e74c3c;
+}
+
 .input-with-balls {
     display: flex;
     gap: 8px;
@@ -265,6 +307,12 @@ input[type="number"]:focus {
     font-size: 13px !important;
     text-align: center;
     transition: border-color 0.3s;
+}
+
+/* 期号输入框放在 input-clear-wrap 内时的适配 */
+.input-clear-wrap .issue-input {
+    width: 100% !important;
+    padding-right: 34px !important;
 }
 
 .issue-input:focus {
@@ -499,4 +547,179 @@ input[type="number"]:focus {
     .select-container select {
         width: 100%;
     }
+}
+
+/* ==================== 奖金对照浮窗 ==================== */
+
+.btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.btn-row .btn-check,
+.btn-row .btn-prize {
+    flex: 1;
+}
+
+.btn-prize {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-align: center;
+}
+
+.btn-prize:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.4);
+}
+
+.btn-prize:active {
+    transform: translateY(0);
+}
+
+/* 浮窗遮罩 */
+.prize-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.prize-overlay.show {
+    display: flex;
+}
+
+/* 浮窗内容 */
+.prize-modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    animation: prizeFadeIn 0.25s ease-out;
+}
+
+@keyframes prizeFadeIn {
+    from { opacity: 0; transform: scale(0.9) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.prize-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.prize-modal-header span {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.prize-close-btn {
+    background: #eee;
+    color: #666;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.prize-close-btn:hover {
+    background: #e74c3c;
+    color: #fff;
+}
+
+.prize-modal-body {
+    padding: 16px 20px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.prize-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.prize-table th,
+.prize-table td {
+    border: 1px solid #ddd;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+.prize-table th {
+    background: #f39c12;
+    color: #fff;
+    font-weight: bold;
+}
+
+.prize-table tr:nth-child(even) td {
+    background: #fef9e7;
+}
+
+.prize-table .prize-amount {
+    font-weight: bold;
+    color: #e74c3c;
+}
+
+.prize-table .prize-float {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+/* 快乐8 特殊样式 */
+.kl8-prize-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+}
+
+.kl8-prize-item {
+    background: #fef9e7;
+    border: 1px solid #fdebd0;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+}
+
+.kl8-prize-item .kl8-play {
+    font-weight: bold;
+    color: #e67e22;
+}
+
+.kl8-prize-item .kl8-money {
+    font-weight: bold;
+    color: #e74c3c;
+    font-size: 15px;
+    margin-top: 2px;
 }

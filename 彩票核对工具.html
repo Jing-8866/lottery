@@ -47,11 +47,17 @@
                     <div class="col">
                         <div class="form-row">
                             <label>我的号码 - 红球 <span class="hint">（至少6个，用逗号/空格分隔）</span></label>
-                            <input type="text" id="verify-ssq-red" placeholder="例: 3,8,15,22,26,31" value="3,8,15,22,26,31">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-ssq-red" placeholder="例: 3,8,15,22,26,31" value="3,8,15,22,26,31">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-ssq-red')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                         <div class="form-row">
                             <label>我的号码 - 蓝球 <span class="hint">（至少1个）</span></label>
-                            <input type="text" id="verify-ssq-blue" placeholder="例: 7" value="7">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-ssq-blue" placeholder="例: 7" value="7">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-ssq-blue')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                     </div>
                     <div class="col">
@@ -68,13 +74,19 @@
 
                 <div class="fetch-row">
                     <div class="fetch-left">
-                        <input type="text" id="verify-issue-ssq" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-ssq" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('ssq')" tabindex="-1">✕</button>
+                        </div>
                         <span class="draw-info" id="verify-draw-info-ssq"></span>
                     </div>
                     <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
                 </div>
 
-                <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('ssq')">📋 奖金对照</button>
+                </div>
             </div>
         </div>
 
@@ -88,11 +100,17 @@
                     <div class="col">
                         <div class="form-row">
                             <label>我的号码 - 前区 <span class="hint">（至少5个）</span></label>
-                            <input type="text" id="verify-dlt-front" placeholder="例: 2,9,15,24,33" value="2,9,15,24,33">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-dlt-front" placeholder="例: 2,9,15,24,33" value="2,9,15,24,33">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-dlt-front')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                         <div class="form-row">
                             <label>我的号码 - 后区 <span class="hint">（至少2个）</span></label>
-                            <input type="text" id="verify-dlt-back" placeholder="例: 3,8" value="3,8">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-dlt-back" placeholder="例: 3,8" value="3,8">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-dlt-back')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                     </div>
                     <div class="col">
@@ -109,13 +127,19 @@
 
                 <div class="fetch-row">
                     <div class="fetch-left">
-                        <input type="text" id="verify-issue-dlt" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-dlt" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('dlt')" tabindex="-1">✕</button>
+                        </div>
                         <span class="draw-info" id="verify-draw-info-dlt"></span>
                     </div>
                     <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
                 </div>
 
-                <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('dlt')">📋 奖金对照</button>
+                </div>
             </div>
         </div>
 
@@ -129,11 +153,17 @@
                     <div class="col">
                         <div class="form-row">
                             <label>我的号码 - 基本号 <span class="hint">（至少7个）</span></label>
-                            <input type="text" id="verify-qlc-basic" placeholder="例: 2,5,8,12,18,23,27" value="2,5,8,12,18,23,27">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-qlc-basic" placeholder="例: 2,5,8,12,18,23,27" value="2,5,8,12,18,23,27">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-qlc-basic')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                         <div class="form-row">
                             <label>我的号码 - 特别号 <span class="hint">（至少1个）</span></label>
-                            <input type="text" id="verify-qlc-special" placeholder="例: 6" value="6">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-qlc-special" placeholder="例: 6" value="6">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-qlc-special')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                     </div>
                     <div class="col">
@@ -150,13 +180,19 @@
 
                 <div class="fetch-row">
                     <div class="fetch-left">
-                        <input type="text" id="verify-issue-qlc" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-qlc" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('qlc')" tabindex="-1">✕</button>
+                        </div>
                         <span class="draw-info" id="verify-draw-info-qlc"></span>
                     </div>
                     <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
                 </div>
 
-                <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('qlc')">📋 奖金对照</button>
+                </div>
             </div>
         </div>
 
@@ -187,7 +223,10 @@
                     <div class="col">
                         <div class="form-row">
                             <label>我的号码 <span class="hint">（至少与玩法数量一致）</span></label>
-                            <input type="text" id="verify-kl8-my" placeholder="例: 3,15,28,42" value="3,15,28,42">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-kl8-my" placeholder="例: 3,15,28,42" value="3,15,28,42">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-kl8-my')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                     </div>
                     <div class="col">
@@ -201,13 +240,19 @@
 
                 <div class="fetch-row">
                     <div class="fetch-left">
-                        <input type="text" id="verify-issue-kl8" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-kl8" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('kl8')" tabindex="-1">✕</button>
+                        </div>
                         <span class="draw-info" id="verify-draw-info-kl8"></span>
                     </div>
                     <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
                 </div>
 
-                <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('kl8')">📋 奖金对照</button>
+                </div>
             </div>
         </div>
 
@@ -221,7 +266,10 @@
                     <div class="col">
                         <div class="form-row">
                             <label>我的号码 <span class="hint">（7位数字）</span></label>
-                            <input type="text" id="verify-qxc-my" placeholder="例: 3,8,1,5,6,2,9 或 3815629" value="3,8,1,5,6,2,9">
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-qxc-my" placeholder="例: 3,8,1,5,6,2,9 或 3815629" value="3,8,1,5,6,2,9">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-qxc-my')" tabindex="-1">✕</button>
+                            </div>
                         </div>
                     </div>
                     <div class="col">
@@ -234,13 +282,19 @@
 
                 <div class="fetch-row">
                     <div class="fetch-left">
-                        <input type="text" id="verify-issue-qxc" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-qxc" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('qxc')" tabindex="-1">✕</button>
+                        </div>
                         <span class="draw-info" id="verify-draw-info-qxc"></span>
                     </div>
                     <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
                 </div>
 
-                <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('qxc')">📋 奖金对照</button>
+                </div>
             </div>
         </div>
 
@@ -250,6 +304,17 @@
             <div id="verify-result-content"></div>
         </div>
 
+    </div>
+
+    <!-- ========== 奖金对照浮窗 ========== -->
+    <div class="prize-overlay" id="prize-overlay" onclick="closePrizeTable(event)">
+        <div class="prize-modal" id="prize-modal" onclick="event.stopPropagation()">
+            <div class="prize-modal-header">
+                <span id="prize-modal-title">🎯 奖金对照表</span>
+                <button class="prize-close-btn" onclick="closePrizeTable()">✕</button>
+            </div>
+            <div class="prize-modal-body" id="prize-modal-body"></div>
+        </div>
     </div>
 
     <script src="js/shared.js"></script>

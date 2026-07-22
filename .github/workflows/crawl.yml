@@ -27,16 +27,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 lxml chardet
 
-      - name: 运行 crawl.py 脚本
-        run: python py/crawl.py
+      - name: 运行 crawl_official.py 脚本（官方 API）
+        run: python py/crawl_official.py
 
-      - name: 提交并推送生成的数据
+      - name: 提交并推送生成的数据到 data-auto 分支
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          # 确保 data/ 目录存在，避免 git add 报错
+
+          # 切换（或创建）到 data-auto 分支
+          git checkout data-auto 2>/dev/null || git checkout --orphan data-auto
+
+          # 如果是 orphan（全新）分支，先清理暂存区
+          if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+            git rm -rf . 2>/dev/null || true
+          fi
+
+          # 确保 data/ 目录存在
           mkdir -p data
+
           # -f 强制添加被 .gitignore 忽略的文件
           git add -f data/
           git diff --staged --quiet || git commit -m "Auto update lottery data $(date -u +'%Y-%m-%d %H:%M')"
-          git push
+
+          # 推送到 data-auto 分支（而非 main）
+          git push origin data-auto
