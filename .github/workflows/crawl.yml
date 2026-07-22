@@ -57,5 +57,5 @@ jobs:
           git add -f data/
           git diff --staged --quiet || git commit -m "Auto update lottery data $(date -u +'%Y-%m-%d %H:%M')"
 
-          # 推送到 data-auto 分支
-          git push origin data-auto
+          # 强制推送到 data-auto 分支（数据分支，无冲突风险）
+          git push --force origin data-auto
