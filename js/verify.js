@@ -29,34 +29,106 @@ const FIFTY_PATHS = {
     qxc: '/qxc/history/newinc/history.php?limit=1'
 };
 
+/** 多个 CORS 代理（依次尝试，任一成功即可） */
+const PROXY_LIST = [
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
 /**
  * 获取开奖号码（仅最新期）
  *
  * 策略链：
- *   1. corsproxy.io → 500.com  ← GitHub Pages 等普通浏览器绕过 CORS
- *   2. 500.com 直连              ← VS Code 预览调试兜底
+ *   1. cwl.gov.cn 官方 API  ← 原生支持 CORS（福彩直连可用）
+ *   2. CORS 代理 → 500.com  ← 绕过跨域限制
+ *   3. 500.com 直连           ← VS Code 预览调试
  */
 async function fetchDrawResult(lotteryId) {
     const path = FIFTY_PATHS[lotteryId];
     if (!path) throw new Error('不支持的彩票类型');
 
-    const url = `${FIFTY_SITE}${path}`;
+    const url500 = `${FIFTY_SITE}${path}`;
 
-    // ① corsproxy.io → 500.com（GitHub Pages / 普通浏览器）
-    const proxyHtml = await fetchHtml(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-    if (proxyHtml) { const p = parse500Result(lotteryId, proxyHtml); if (p) return p; }
+    // ① cwl.gov.cn 官方 JSON API（福彩: ssq/qlc/kl8，原生 CORS）
+    //    体彩 (dlt/qxc) 会返回 404，自动跳过
+    const cwlData = await fetchJson(
+        `https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=${lotteryId}&issueCount=1`
+    );
+    if (cwlData && cwlData.state === 0 && cwlData.result && cwlData.result.length > 0) {
+        const item = cwlData.result[0];
+        return {
+            drawIssue: item.code,
+            drawDate: (item.date || '').replace(/\([^)]*\)$/, ''),
+            groups: parseCWLGroups(lotteryId, item)
+        };
+    }
 
-    // ② 500.com 直连（VS Code 预览调试）
-    const html = await fetchHtml(url);
+    // ② 多个 CORS 代理同时尝试 500.com（并行，取最快成功的）
+    const proxyResults = await Promise.allSettled(
+        PROXY_LIST.map(build => fetchHtml(build(url500)))
+    );
+    for (const r of proxyResults) {
+        if (r.status === 'fulfilled' && r.value) {
+            const p = parse500Result(lotteryId, r.value);
+            if (p) return p;
+        }
+    }
+
+    // ③ 500.com 直连（VS Code 预览调试）
+    const html = await fetchHtml(url500);
     if (html) { const p = parse500Result(lotteryId, html); if (p) return p; }
 
     throw new Error('获取失败，请手动输入开奖号码');
 }
 
-/** 用 no-cors 方式抓取 HTML 页面，返回文本或 null */
-async function fetchHtml(url) {
+/** 从 cwl.gov.cn JSON 中提取开奖号码分组 */
+function parseCWLGroups(lotteryId, item) {
+    const r = (item.red || '').split(',').filter(Boolean).map(Number);
+    const b = (item.blue || '').split(',').filter(Boolean).map(Number);
+    switch (lotteryId) {
+        case 'ssq': return [
+            { key: 'red', nums: r },
+            { key: 'blue', nums: b }
+        ];
+        case 'dlt': return [
+            { key: 'front', nums: r },
+            { key: 'back', nums: b }
+        ];
+        case 'qlc': return [
+            { key: 'basic', nums: r },
+            { key: 'special', nums: b }
+        ];
+        case 'kl8': return [
+            { key: 'numbers', nums: r }
+        ];
+        case 'qxc': return [
+            { key: 'digits', nums: (item.red || '').replace(/\D/g, '').split('').map(Number).slice(0, 7) }
+        ];
+        default: return [];
+    }
+}
+
+/** 从 JSON API 获取数据 */
+async function fetchJson(url) {
     const ctrl = new AbortController();
     const tm = setTimeout(() => ctrl.abort(), 6000);
+    try {
+        const resp = await fetch(url, {
+            signal: ctrl.signal,
+            headers: { 'Accept': 'application/json' }
+        });
+        clearTimeout(tm);
+        return resp.ok ? await resp.json() : null;
+    } catch {
+        clearTimeout(tm);
+        return null;
+    }
+}
+
+/** 从 URL 获取 HTML 文本 */
+async function fetchHtml(url, timeout = 4000) {
+    const ctrl = new AbortController();
+    const tm = setTimeout(() => ctrl.abort(), timeout);
     try {
         const resp = await fetch(url, {
             signal: ctrl.signal,
