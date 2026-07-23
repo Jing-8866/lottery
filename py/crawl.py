@@ -100,7 +100,7 @@ def fetch_page(url):
 def parse_ssq(soup):
     """
     双色球 (history.php, 16 tds)
-    td[0]=期号, td[1..6]=红球, td[7]=蓝球, td[15]=开奖日期
+    td[0]=期号, td[1..6]=红球, td[7]=蓝球, td[9]=奖池, td[15]=开奖日期
     """
     data = []
     tbody = soup.find("tbody", id="tdata")
@@ -114,7 +114,12 @@ def parse_ssq(soup):
         reds = [td.get_text().strip().zfill(2) for td in tds[1:7]]
         blues = [td.get_text().strip().zfill(2) for td in tds[7:8]]
         date = tds[15].get_text().strip()
-        data.append({"issue": issue, "date": date, "red": reds, "blue": blues})
+        pool_raw = tds[9].get_text().strip().replace(",", "")
+        try:
+            pool = int(pool_raw) if pool_raw else 0
+        except ValueError:
+            pool = 0
+        data.append({"issue": issue, "date": date, "red": reds, "blue": blues, "pool": pool})
     return data
 
 

@@ -148,10 +148,18 @@ def parse_fc(item, cfg):
     if cfg["blue_cnt"] > 0:
         blues = [n.strip().zfill(2) for n in blue_str.split(",") if n.strip()][:cfg["blue_cnt"]]
 
+    # 奖池金额（poolmoney 是字符串，如 "480802779"）
+    pool_raw = item.get("poolmoney", "0")
+    try:
+        pool = int(pool_raw) if pool_raw else 0
+    except (ValueError, TypeError):
+        pool = 0
+
     result = {
         "issue": item.get("code", ""),
         "date": item.get("date", "").split("(")[0] if "(" in item.get("date", "") else item.get("date", ""),
         "red": reds,
+        "pool": pool,
     }
     if blues:
         result["blue"] = blues
@@ -314,7 +322,7 @@ def fallback_crawl(key):
 
 
 def fallback_parse_ssq(soup):
-    """500.com 双色球解析"""
+    """500.com 双色球解析（含奖池）"""
     data = []
     tbody = soup.find("tbody", id="tdata")
     if not tbody:
@@ -327,7 +335,12 @@ def fallback_parse_ssq(soup):
         reds = [td.get_text().strip().zfill(2) for td in tds[1:7]]
         blues = [td.get_text().strip().zfill(2) for td in tds[7:8]]
         date = tds[15].get_text().strip()
-        data.append({"issue": issue, "date": date, "red": reds, "blue": blues})
+        pool_raw = tds[9].get_text().strip().replace(",", "")
+        try:
+            pool = int(pool_raw) if pool_raw else 0
+        except ValueError:
+            pool = 0
+        data.append({"issue": issue, "date": date, "red": reds, "blue": blues, "pool": pool})
     return data
 
 

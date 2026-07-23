@@ -110,7 +110,8 @@ async function fetchDrawResult(lotteryId, issue) {
     return {
         drawIssue: target.issue,
         drawDate: target.date || '',
-        groups
+        groups,
+        pool: target.pool  // 奖池金额（双色球福运奖判断用）
     };
 }
 
@@ -154,7 +155,8 @@ const verifyTypeConfig = {
             { rank: '五等奖', red: 3, blue: 1, prize: 10 },
             { rank: '六等奖', red: 2, blue: 1, prize: 5 },
             { rank: '六等奖', red: 1, blue: 1, prize: 5 },
-            { rank: '六等奖', red: 0, blue: 1, prize: 5 }
+            { rank: '六等奖', red: 0, blue: 1, prize: 5 },
+            { rank: '福运奖(奖池≥15亿)', red: 3, blue: 0, prize: 5 }
         ],
         // 每组选几个号组成一注
         pickCounts: [6, 1]
@@ -393,7 +395,11 @@ function verifyCheckSSQ(config, resultContent) {
     const betCount = comb(myReds.length, 6) * comb(myBlues.length, 1);
     const betAmount = betCount * 2;
 
-    renderPrizeResult(config, resultContent, {
+    // 福运奖要求奖池 ≥ 15亿，不满足时排除
+    const poolOk = currentDrawPool >= 1500000000;
+    const activeConfig = { ...config, prizes: poolOk ? config.prizes : config.prizes.filter(p => p.rank !== '福运奖(奖池≥15亿)') };
+
+    renderPrizeResult(activeConfig, resultContent, {
         hits: [
             { label: '红球命中', count: redHit, total: myReds.length, css: 'ball-red' },
             { label: '蓝球命中', count: blueHit, total: myBlues.length, css: 'ball-blue' }
@@ -718,6 +724,8 @@ function validateRange(nums, min, max, label) {
 
 /** 当前选中的彩票类型 */
 let currentVerifyType = 'ssq';
+/** 当前获取到的开奖奖池金额（双色球福运奖判断用） */
+let currentDrawPool = 0;
 
 window.onload = function () {
     document.getElementById('verify-category').value = 'fc';
@@ -897,6 +905,8 @@ async function fetchDrawAndFill(button) {
 
     try {
         const result = await fetchDrawResult(id, issue || undefined);
+        // 保存奖池金额（福运奖判断用）
+        currentDrawPool = result.pool || 0;
         fillDrawNumbers(id, result);
         // 显示期号信息
         const issueEl = document.getElementById(`verify-draw-info-${id}`);
