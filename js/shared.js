@@ -33,25 +33,22 @@ const lotteryData = {
 };
 
 /**
- * 从多个 URL 并行请求，返回最先成功的 Response（自动取消其他请求）
+ * 从多个 URL 并行请求，返回第一个成功的 Response（自动取消其他请求）。
+ * 注意：不使用 Promise.race，因为它会因失败快的请求提前 reject，
+ * 导致成功的响应被忽略。
  * @param {...string} urls
  * @returns {Promise<Response|null>}
  */
 async function fastestFetch(...urls) {
     const controllers = urls.map(() => new AbortController());
-    const promises = urls.map((url, i) =>
-        fetch(url, { signal: controllers[i].signal })
-            .then(resp => {
-                if (resp.ok) {
-                    controllers.forEach((c, j) => { if (j !== i) c.abort(); });
-                    return resp;
-                }
-                return Promise.reject();
-            })
+    // 等待所有请求完成，取第一个成功的
+    const results = await Promise.allSettled(
+        urls.map((url, i) => fetch(url, { signal: controllers[i].signal }))
     );
-    try {
-        return await Promise.race(promises);
-    } catch {
-        return null;
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.ok) {
+            return result.value;
+        }
     }
+    return null;
 }
