@@ -98,15 +98,21 @@ async function preloadDrawData() {
  * @returns {Promise<Response|null>}
  */
 async function fastestFetch(...urls) {
+    if (urls.length === 0) return null;
+
     // 优先检查 localStorage 预加载缓存
-    for (const url of urls) {
-        const fileName = url.split('/').pop();
-        const cached = localStorage.getItem('lottery-' + fileName);
-        if (cached) {
-            return new Response(cached, {
-                headers: { 'Content-Type': 'application/json' }
-            });
+    try {
+        for (const url of urls) {
+            const fileName = url.split('/').pop();
+            const cached = localStorage.getItem('lottery-' + fileName);
+            if (cached) {
+                return new Response(cached, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
         }
+    } catch {
+        // localStorage 不可用时（如隐私模式），直接降级到网络请求
     }
 
     // 先成功优先：第一个成功的响应到来即返回，不等所有请求完成
@@ -133,5 +139,9 @@ async function fastestFetch(...urls) {
 
 /** 获取预加载缓存的更新时间 */
 function getCacheTime() {
-    return localStorage.getItem('lottery-cache-time') || null;
+    try {
+        return localStorage.getItem('lottery-cache-time') || null;
+    } catch {
+        return null;
+    }
 }

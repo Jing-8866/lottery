@@ -130,8 +130,15 @@ let historyDataCache = {};
 function loadHistoryData(betType) {
     // 已有缓存数据，直接返回
     if (historyDataCache[betType]) {
-        // 可能是 Promise（加载中）或数组（已加载）
-        return Promise.resolve(historyDataCache[betType]);
+        const cached = historyDataCache[betType];
+        // 如果是 Promise，且已完成但被拒绝，清除缓存让下一次重试
+        if (cached instanceof Promise) {
+            return cached.catch(() => {
+                delete historyDataCache[betType];
+                return loadHistoryData(betType);
+            });
+        }
+        return Promise.resolve(cached);
     }
 
     const map = BET_DATA_MAP[betType];
@@ -739,6 +746,14 @@ async function generateBatch() {
     isGenerating = true;
     if (domCache.generateBtn) domCache.generateBtn.disabled = true;
 
+    // 整体超时保护：30秒后自动终止，防止意外卡死
+    const timeoutId = setTimeout(() => {
+        isGenerating = false;
+        if (domCache.generateBtn) domCache.generateBtn.disabled = false;
+        const rd = domCache.batchResults;
+        if (rd) rd.innerHTML += '<div class="stats" style="text-align:center;color:#e74c3c;">⏰ 生成超时，请重试</div>';
+    }, 30000);
+
     try {
         const type = domCache.batchType.value;
         let count = parseInt(domCache.batchCount.value);
@@ -748,10 +763,17 @@ async function generateBatch() {
         const config = lotteryConfig[type];
         const resultsDiv = domCache.batchResults;
         resultsDiv.classList.remove('hidden');
-        resultsDiv.innerHTML = '<div class="stats" style="text-align:center;color:#888;">⏳ 加载历史走势数据...</div>';
 
-        // 先让浏览器渲染"加载中"提示，再开始后续操作
-        await new Promise(r => setTimeout(r, 0));
+        // 已有缓存（内存或 localStorage）时不显示加载提示，直接生成
+        // 只在实际需要网络请求时才显示，避免每次闪一下"加载历史走势数据"
+        let hasLocalCache = false;
+        try { hasLocalCache = !!localStorage.getItem('lottery-' + (BET_DATA_MAP[type] ? BET_DATA_MAP[type].file : '')); } catch {}
+        const hasCache = !!(historyDataCache[type] || hasLocalCache);
+        if (!hasCache) {
+            resultsDiv.innerHTML = '<div class="stats" style="text-align:center;color:#888;">⏳ 加载历史走势数据...</div>';
+            // 让浏览器有机会渲染"加载中"提示
+            await new Promise(r => setTimeout(r, 0));
+        }
 
     // 异步加载历史数据
     const history = await loadHistoryData(type);
@@ -877,13 +899,19 @@ async function generateBatch() {
     // 生成完成
     progressDiv.textContent = `✅ 已生成 ${count} 注`;
     resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    clearTimeout(timeoutId);
     } catch (e) {
+    clearTimeout(timeoutId);
         console.error('生成号码失败:', e);
-        const resultsDiv = domCache.batchResults;
-        resultsDiv.innerHTML += '<div class="stats" style="text-align:center;color:#e74c3c;">❌ 生成失败，请重试</div>';
+        try {
+            const errMsg = (e && e.message) ? e.message : String(e);
+            const rd = domCache.batchResults;
+            if (rd) rd.innerHTML = '<div class="stats" style="text-align:center;color:#e74c3c;">❌ 生成失败：' + errMsg + '，请重试</div>';
+        } catch (_) {}
     } finally {
+        clearTimeout(timeoutId);
         isGenerating = false;
-        if (domCache.generateBtn) domCache.generateBtn.disabled = false;
+        try { if (domCache.generateBtn) domCache.generateBtn.disabled = false; } catch (_) {}
     }
 }
 
