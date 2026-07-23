@@ -139,12 +139,67 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+
+        .preload-area {
+            text-align: center;
+            margin-bottom: 30px;
+            max-width: 720px;
+            width: 100%;
+        }
+
+        .preload-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 14px;
+            padding: 14px 32px;
+            font-size: 1.05em;
+            font-weight: 600;
+            color: #667eea;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+        }
+
+        .preload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .preload-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .preload-status {
+            margin-top: 10px;
+            font-size: 0.95em;
+            color: #fff;
+            min-height: 1.4em;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .preload-hint {
+            margin-top: 6px;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🎱 彩票工具箱</h1>
         <p>奖金计算 · 号码生成 · 中奖核对 · 开奖提醒</p>
+    </div>
+
+    <!-- 数据预加载区域 -->
+    <div class="preload-area">
+        <button id="preload-btn" class="preload-btn" onclick="preloadDrawData()">
+            📥 加载历史开奖数据到缓存
+        </button>
+        <div id="preload-status" class="preload-status"></div>
+        <p class="preload-hint">点击后一次性下载所有彩种的开奖数据并缓存到浏览器，后续投注 / 核对页面将优先使用缓存，加载更快。</p>
     </div>
 
     <div class="card-container">
@@ -171,7 +226,7 @@
             </div>
         </a>
         
-        <a class="card" href="彩票查询工具.html">
+        <!-- <a class="card" href="彩票查询工具.html">
             <div class="card-icon">🎯</div>
             <h2>彩票奖金计算器</h2>
             <p>支持双色球、大乐透、快乐8、七乐彩、七星彩的复式投注奖金计算，自动计算各奖级中奖注数及总奖金。</p>
@@ -182,11 +237,13 @@
                 <span class="tag">七乐彩</span>
                 <span class="tag">七星彩</span>
             </div>
-        </a>
+        </a> -->
     </div>
 
     <div class="footer">
         💡 本工具仅供学习参考，请理性购彩，量力而行
     </div>
+
+    <script src="js/shared.js"></script>
 </body>
 </html>

@@ -27,11 +27,6 @@ function comb(n, r) {
  * ═══════════════════════════════════════════════════════════════
  */
 
-/** 本地开发路径（与 py 目录同级） */
-const DATA_PATH_LOCAL = 'data';
-/** 线上部署路径（从 data-auto 分支读取） */
-const DATA_PATH_REMOTE = 'https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data';
-
 /** 彩种 → JSON 字段映射 */
 const FIELD_MAP = {
     ssq: { file: 'ssq.json', groups: [

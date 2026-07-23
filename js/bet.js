@@ -118,9 +118,6 @@ const BET_DATA_MAP = {
     ]}
 };
 
-const DATA_PATH_LOCAL = 'data';
-const DATA_PATH_REMOTE = 'https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data';
-
 /** 缓存已加载的历史数据，避免重复请求 */
 let historyDataCache = {};
 

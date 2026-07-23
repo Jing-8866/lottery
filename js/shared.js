@@ -2,6 +2,17 @@
  * 彩票工具 - 共享函数
  */
 
+// ==================== 数据路径（各页面共用） ====================
+
+/** 本地开发路径 */
+const DATA_PATH_LOCAL = 'data';
+/** 线上部署路径（从 data-auto 分支读取） */
+const DATA_PATH_REMOTE = 'https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data';
+/** 浏览器 Cache API 缓存名称 */
+const CACHE_NAME = 'lottery-data-v1';
+/** 所有彩种对应的 JSON 文件名 */
+const ALL_DATA_FILES = ['ssq.json', 'dlt.json', 'qlc.json', 'kl8.json', 'qxc.json'];
+
 // 组合数计算 C(n, r)
 function comb(n, r) {
     if (r > n || r < 0) return 0;
@@ -33,15 +44,62 @@ const lotteryData = {
 };
 
 /**
- * 从多个 URL 并行请求，返回第一个成功的 Response（自动取消其他请求）。
- * 注意：不使用 Promise.race，因为它会因失败快的请求提前 reject，
- * 导致成功的响应被忽略。
+ * 预加载所有彩种的开奖数据到浏览器缓存（Cache API）。
+ * 点击入口页的"加载历史开奖数据"按钮时调用。
+ */
+async function preloadDrawData() {
+    const btn = document.getElementById('preload-btn');
+    const statusEl = document.getElementById('preload-status');
+    if (!statusEl) return;
+
+    try {
+        if (!('caches' in window)) {
+            statusEl.textContent = '⚠️ 您的浏览器不支持缓存功能';
+            return;
+        }
+
+        if (btn) { btn.disabled = true; }
+        statusEl.textContent = '⏳ 正在下载开奖数据...';
+
+        const cache = await caches.open(CACHE_NAME);
+        for (const file of ALL_DATA_FILES) {
+            const url = `${DATA_PATH_REMOTE}/${file}`;
+            statusEl.textContent = `⏳ 正在下载 ${file}...`;
+            await cache.add(url);
+        }
+
+        statusEl.textContent = '✅ 所有开奖数据已缓存到本地！后续页面将优先使用缓存数据。';
+        if (btn) { btn.textContent = '✅ 已加载'; btn.disabled = false; }
+    } catch (e) {
+        statusEl.textContent = `❌ 加载失败：${e.message}，请稍后重试`;
+        if (btn) { btn.disabled = false; }
+    }
+}
+
+/**
+ * 从多个 URL 并行请求，返回第一个成功的 Response。
+ * 优先从浏览器缓存读取，缓存未命中再走网络请求。
  * @param {...string} urls
  * @returns {Promise<Response|null>}
  */
 async function fastestFetch(...urls) {
+    // 优先检查浏览器缓存
+    if ('caches' in window) {
+        try {
+            const cache = await caches.open(CACHE_NAME);
+            for (const url of urls) {
+                const cached = await cache.match(url);
+                if (cached && cached.ok) {
+                    return cached;
+                }
+            }
+        } catch {
+            // 缓存读取失败，降级到网络请求
+        }
+    }
+
+    // 缓存未命中，并行请求所有 URL，取第一个成功的
     const controllers = urls.map(() => new AbortController());
-    // 等待所有请求完成，取第一个成功的
     const results = await Promise.allSettled(
         urls.map((url, i) => fetch(url, { signal: controllers[i].signal }))
     );
