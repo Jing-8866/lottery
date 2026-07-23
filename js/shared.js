@@ -75,6 +75,7 @@ async function preloadDrawData() {
 /**
  * 从多个 URL 并行请求，返回第一个成功的 Response。
  * 优先从 localStorage 读取（预加载缓存），未命中再走网络请求。
+ * 使用"先成功优先"策略：第一个成功的响应到达即返回，失败的不阻塞。
  * @param {...string} urls
  * @returns {Promise<Response|null>}
  */
@@ -90,17 +91,26 @@ async function fastestFetch(...urls) {
         }
     }
 
-    // 缓存未命中，并行请求所有 URL，取第一个成功的
+    // 先成功优先：第一个成功的响应到来即返回，不等所有请求完成
     const controllers = urls.map(() => new AbortController());
-    const results = await Promise.allSettled(
-        urls.map((url, i) => fetch(url, { signal: controllers[i].signal }))
-    );
-    for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.ok) {
-            return result.value;
+    return new Promise(resolve => {
+        let settled = 0;
+        for (let i = 0; i < urls.length; i++) {
+            const idx = i;
+            fetch(urls[idx], { signal: controllers[idx].signal })
+                .then(resp => {
+                    if (resp.ok) {
+                        controllers.forEach((c, j) => { if (j !== idx) c.abort(); });
+                        resolve(resp);
+                    } else if (++settled >= urls.length) {
+                        resolve(null);
+                    }
+                })
+                .catch(() => {
+                    if (++settled >= urls.length) resolve(null);
+                });
         }
-    }
-    return null;
+    });
 }
 
 /** 获取预加载缓存的更新时间 */

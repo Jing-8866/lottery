@@ -53,7 +53,8 @@ const FIELD_MAP = {
 const drawDataCache = {};
 
 /**
- * 从 JSON 文件获取开奖号码（并行请求本地和远程，缓存结果）
+ * 从 JSON 文件获取开奖号码（并行请求本地和远程，缓存结果）。
+ * 支持并发共享：多次调用同一彩种只发起一次网络请求。
  * @param {string} lotteryId  彩种ID
  * @param {string} [issue]    可选期号，留空返回最新一期
  * @returns {Promise<{drawIssue, drawDate, groups}>}
@@ -62,19 +63,32 @@ async function fetchDrawResult(lotteryId, issue) {
     const cfg = FIELD_MAP[lotteryId];
     if (!cfg) throw new Error('不支持的彩票类型');
 
-    // 优先使用缓存
+    // 优先使用缓存（可能是 Promise 或数组）
     if (!drawDataCache[lotteryId]) {
-        // 并行请求本地和远程，取最先成功的
         const localUrl = `${DATA_PATH_LOCAL}/${cfg.file}`;
         const remoteUrl = `${DATA_PATH_REMOTE}/${cfg.file}`;
-        const resp = await fastestFetch(localUrl, remoteUrl);
-        if (!resp) throw new Error(`无法读取 ${cfg.file}`);
-
-        const json = await resp.json();
-        drawDataCache[lotteryId] = json.data || [];
+        // 将 Promise 存入缓存，并发调用共享同一个请求
+        drawDataCache[lotteryId] = (async () => {
+            try {
+                const resp = await fastestFetch(localUrl, remoteUrl);
+                if (!resp) throw new Error(`无法读取 ${cfg.file}`);
+                const json = await resp.json();
+                const data = json.data || [];
+                // 自动缓存到 localStorage，下次页面加载无需网络请求
+                if (data.length > 0) {
+                    localStorage.setItem('lottery-' + cfg.file, JSON.stringify(json));
+                }
+                return data;
+            } catch (e) {
+                // 请求失败时清除缓存，允许后续重试
+                delete drawDataCache[lotteryId];
+                throw e;
+            }
+        })();
     }
 
-    const list = drawDataCache[lotteryId];
+    // 如果是 Promise，等待它完成
+    const list = await Promise.resolve(drawDataCache[lotteryId]);
     if (list.length === 0) throw new Error('开奖数据为空');
 
     // 找目标期号：指定期号 → 最新一期

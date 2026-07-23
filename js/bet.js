@@ -122,31 +122,47 @@ const BET_DATA_MAP = {
 let historyDataCache = {};
 
 /**
- * 加载某个彩种的历史开奖数据（并行尝试本地和远程，最快响应优先）
+ * 加载某个彩种的历史开奖数据（并行尝试本地和远程，最快响应优先）。
+ * 支持并发共享：多个调用同时请求同一彩种时只发起一次网络请求。
  * @param {string} betType  投注工具中的彩种 ID（如 shuangseqiu）
  * @returns {Promise<object[]>} 历史数据数组（最新期在前）
  */
-async function loadHistoryData(betType) {
-    if (historyDataCache[betType]) return historyDataCache[betType];
+function loadHistoryData(betType) {
+    // 已有缓存数据，直接返回
+    if (historyDataCache[betType]) {
+        // 可能是 Promise（加载中）或数组（已加载）
+        return Promise.resolve(historyDataCache[betType]);
+    }
 
     const map = BET_DATA_MAP[betType];
-    if (!map) return [];
+    if (!map) return Promise.resolve([]);
 
-    // 并行请求本地和远程，取最先成功的
-    const localUrl = `${DATA_PATH_LOCAL}/${map.file}`;
-    const remoteUrl = `${DATA_PATH_REMOTE}/${map.file}`;
+    // 将 Promise 存入缓存，后续并发调用共享同一个请求
+    const promise = (async () => {
+        const localUrl = `${DATA_PATH_LOCAL}/${map.file}`;
+        const remoteUrl = `${DATA_PATH_REMOTE}/${map.file}`;
 
-    const resp = await fastestFetch(localUrl, remoteUrl);
-    if (!resp) return [];
+        const resp = await fastestFetch(localUrl, remoteUrl);
+        if (!resp) return [];
 
-    try {
-        const json = await resp.json();
-        const data = json.data || [];
-        historyDataCache[betType] = data;
-        return data;
-    } catch {
-        return [];
-    }
+        try {
+            const json = await resp.json();
+            const data = json.data || [];
+
+            // 自动缓存到 localStorage，下次页面加载无需网络请求
+            if (data.length > 0) {
+                localStorage.setItem('lottery-' + map.file, JSON.stringify(json));
+            }
+
+            historyDataCache[betType] = data;
+            return data;
+        } catch {
+            return [];
+        }
+    })();
+
+    historyDataCache[betType] = promise;
+    return promise;
 }
 
 /**
@@ -703,8 +719,12 @@ const domCache = {
     batchCount:      document.getElementById('batchCount'),
     batchKL8Play:    document.getElementById('batchKL8PlayType'),
     kl8PlayGroup:    document.getElementById('kl8PlayTypeGroup'),
-    batchResults:    document.getElementById('batchResults')
+    batchResults:    document.getElementById('batchResults'),
+    generateBtn:     document.querySelector('.confirm-btn')
 };
+
+/** 是否正在生成中（防止重复点击） */
+let isGenerating = false;
 
 /** 处理彩种类型变化：切换快乐8玩法选择区的显隐 */
 function handleBatchTypeChange() {
@@ -714,15 +734,24 @@ function handleBatchTypeChange() {
 
 /** 生成批量号码（分块异步执行，避免卡顿） */
 async function generateBatch() {
-    const type = domCache.batchType.value;
-    let count = parseInt(domCache.batchCount.value);
-    if (isNaN(count) || count < 1) count = 1;
-    if (count > 50) count = 50;
+    // 防止重复点击
+    if (isGenerating) return;
+    isGenerating = true;
+    if (domCache.generateBtn) domCache.generateBtn.disabled = true;
 
-    const config = lotteryConfig[type];
-    const resultsDiv = domCache.batchResults;
-    resultsDiv.classList.remove('hidden');
-    resultsDiv.innerHTML = '<div class="stats" style="text-align:center;color:#888;">⏳ 加载历史走势数据...</div>';
+    try {
+        const type = domCache.batchType.value;
+        let count = parseInt(domCache.batchCount.value);
+        if (isNaN(count) || count < 1) count = 1;
+        if (count > 50) count = 50;
+
+        const config = lotteryConfig[type];
+        const resultsDiv = domCache.batchResults;
+        resultsDiv.classList.remove('hidden');
+        resultsDiv.innerHTML = '<div class="stats" style="text-align:center;color:#888;">⏳ 加载历史走势数据...</div>';
+
+        // 先让浏览器渲染"加载中"提示，再开始后续操作
+        await new Promise(r => setTimeout(r, 0));
 
     // 异步加载历史数据
     const history = await loadHistoryData(type);
@@ -848,10 +877,20 @@ async function generateBatch() {
     // 生成完成
     progressDiv.textContent = `✅ 已生成 ${count} 注`;
     resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+        console.error('生成号码失败:', e);
+        const resultsDiv = domCache.batchResults;
+        resultsDiv.innerHTML += '<div class="stats" style="text-align:center;color:#e74c3c;">❌ 生成失败，请重试</div>';
+    } finally {
+        isGenerating = false;
+        if (domCache.generateBtn) domCache.generateBtn.disabled = false;
+    }
 }
 
 // ==================== 初始化 ====================
 
 document.addEventListener('DOMContentLoaded', () => {
     handleBatchTypeChange();
+    // 页面加载后立即预取默认彩种的数据，用户点击生成时无需等待
+    loadHistoryData(domCache.batchType.value).catch(() => {});
 });
