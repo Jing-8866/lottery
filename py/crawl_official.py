@@ -440,8 +440,21 @@ def crawl_with_fallback(key):
         raise
 
 
+def normalize_issue(issue):
+    """统一期号为7位格式（如 26081 → 2026081）"""
+    if not issue:
+        return issue
+    s = str(issue).strip()
+    if len(s) == 5:
+        return "20" + s
+    return s
+
+
 def merge_with_existing(key, new_data):
-    """与已有 JSON 文件合并，同期号用新数据覆盖旧数据"""
+    """
+    与已有 JSON 文件合并，同期号用新数据覆盖旧数据。
+    统一期号为7位格式后，按数值降序排列。
+    """
     out_path = os.path.join(DATA_DIR, f"{key}.json")
     existing = []
 
@@ -455,8 +468,14 @@ def merge_with_existing(key, new_data):
             log(f"{key}: 已有文件解析失败，将覆盖重建 ({e})", "WARN")
             existing = []
 
-    # 建立期号 → 旧数据 的映射
-    old_map = {item.get("issue", ""): item for item in existing if item.get("issue")}
+    # 建立期号 → 旧数据 的映射（统一为7位期号）
+    old_map = {}
+    for item in existing:
+        issue = item.get("issue", "")
+        if issue:
+            norm_issue = normalize_issue(issue)
+            item["issue"] = norm_issue
+            old_map[norm_issue] = item
 
     # 用新数据覆盖旧数据
     replaced_count = 0
@@ -464,13 +483,15 @@ def merge_with_existing(key, new_data):
         issue = item.get("issue", "")
         if not issue:
             continue
-        old_map[issue] = item
+        norm_issue = normalize_issue(issue)
+        item["issue"] = norm_issue
+        old_map[norm_issue] = item
         replaced_count += 1
 
     merged = list(old_map.values())
 
-    # 按期号降序排列（最新期在前）
-    merged.sort(key=lambda x: x.get("issue", ""), reverse=True)
+    # 按数值降序排列（最新期在前），避免字符串比较导致 26081 > 2026082
+    merged.sort(key=lambda x: int(x.get("issue", "0")), reverse=True)
 
     log(f"{key}: 覆盖 {replaced_count} 期，累计 {len(merged)} 期")
     return merged

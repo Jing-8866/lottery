@@ -54,8 +54,11 @@ const FIELD_MAP = {
     ]}
 };
 
+/** 缓存已加载的JSON数据，避免重复请求 */
+const drawDataCache = {};
+
 /**
- * 从 JSON 文件获取开奖号码（先尝试本地，失败则走 data-auto 分支）
+ * 从 JSON 文件获取开奖号码（并行请求本地和远程，缓存结果）
  * @param {string} lotteryId  彩种ID
  * @param {string} [issue]    可选期号，留空返回最新一期
  * @returns {Promise<{drawIssue, drawDate, groups}>}
@@ -64,21 +67,19 @@ async function fetchDrawResult(lotteryId, issue) {
     const cfg = FIELD_MAP[lotteryId];
     if (!cfg) throw new Error('不支持的彩票类型');
 
-    // 先尝试本地路径（本地开发调试用）
-    let resp;
-    try {
-        resp = await fetch(`${DATA_PATH_LOCAL}/${cfg.file}`);
-    } catch {
-        resp = null;
-    }
-    if (!resp || !resp.ok) {
-        // 本地失败，尝试 data-auto 分支（线上部署用）
-        resp = await fetch(`${DATA_PATH_REMOTE}/${cfg.file}`);
-        if (!resp.ok) throw new Error(`无法读取 ${cfg.file}`);
+    // 优先使用缓存
+    if (!drawDataCache[lotteryId]) {
+        // 并行请求本地和远程，取最先成功的
+        const localUrl = `${DATA_PATH_LOCAL}/${cfg.file}`;
+        const remoteUrl = `${DATA_PATH_REMOTE}/${cfg.file}`;
+        const resp = await fastestFetch(localUrl, remoteUrl);
+        if (!resp) throw new Error(`无法读取 ${cfg.file}`);
+
+        const json = await resp.json();
+        drawDataCache[lotteryId] = json.data || [];
     }
 
-    const json = await resp.json();
-    const list = json.data || [];
+    const list = drawDataCache[lotteryId];
     if (list.length === 0) throw new Error('开奖数据为空');
 
     // 找目标期号：指定期号 → 最新一期
@@ -713,7 +714,8 @@ window.onload = function () {
     document.getElementById('verify-category').value = 'fc';
     verifyUpdateLottery();
     document.getElementById('verify-lottery').value = 'ssq';
-    verifySwitchLottery();
+    // 先渲染 UI，再异步获取开奖数据，避免阻塞页面加载
+    setTimeout(() => verifySwitchLottery(), 50);
 };
 
 // ==================== 奖金对照浮窗 ====================

@@ -125,7 +125,7 @@ const DATA_PATH_REMOTE = 'https://raw.githubusercontent.com/Jing-8866/lottery/da
 let historyDataCache = {};
 
 /**
- * 加载某个彩种的历史开奖数据
+ * 加载某个彩种的历史开奖数据（并行尝试本地和远程，最快响应优先）
  * @param {string} betType  投注工具中的彩种 ID（如 shuangseqiu）
  * @returns {Promise<object[]>} 历史数据数组（最新期在前）
  */
@@ -135,20 +135,12 @@ async function loadHistoryData(betType) {
     const map = BET_DATA_MAP[betType];
     if (!map) return [];
 
-    let resp;
-    try {
-        resp = await fetch(`${DATA_PATH_LOCAL}/${map.file}`);
-    } catch {
-        resp = null;
-    }
-    if (!resp || !resp.ok) {
-        try {
-            resp = await fetch(`${DATA_PATH_REMOTE}/${map.file}`);
-        } catch {
-            return [];
-        }
-        if (!resp || !resp.ok) return [];
-    }
+    // 并行请求本地和远程，取最先成功的
+    const localUrl = `${DATA_PATH_LOCAL}/${map.file}`;
+    const remoteUrl = `${DATA_PATH_REMOTE}/${map.file}`;
+
+    const resp = await fastestFetch(localUrl, remoteUrl);
+    if (!resp) return [];
 
     try {
         const json = await resp.json();
@@ -247,7 +239,7 @@ function strategyHotWeighted(min, max, count, freqMap) {
         weights.push((freqMap.get(i) || 0) + 1);
     }
 
-    for (let attempt = 0; attempt < 100; attempt++) {
+    for (let attempt = 0; attempt < 15; attempt++) {
         const picked = new Set();
         const tempWeights = [...weights];
         const tempCands = [...candidates];
@@ -289,7 +281,7 @@ function strategyColdRebound(min, max, count, coldHotScores) {
         weights.push(reboundWeight);
     }
 
-    for (let attempt = 0; attempt < 100; attempt++) {
+    for (let attempt = 0; attempt < 15; attempt++) {
         const picked = new Set();
         const tempWeights = [...weights];
         const tempCands = [...candidates];
@@ -339,7 +331,7 @@ function strategyHotColdMix(min, max, count, freqMap, coldHotScores) {
     if (hotCount > hotNums.length) { hotCount = hotNums.length; coldCount = count - hotCount; }
     if (coldCount > coldNums.length) { coldCount = coldNums.length; hotCount = count - coldCount; }
 
-    for (let attempt = 0; attempt < 60; attempt++) {
+    for (let attempt = 0; attempt < 12; attempt++) {
         const pickedHot = shuffle(hotNums).slice(0, Math.max(0, hotCount));
         const pickedCold = shuffle(coldNums).slice(0, Math.max(0, coldCount));
         const merged = [...pickedHot, ...pickedCold].sort((a, b) => a - b);
@@ -452,8 +444,8 @@ function sample(min, max, count) {
 }
 
 /**
- * 检查数组的连号情况
- * 规则：4+连号 → 坚决拒绝；恰好3连号 → 约 25% 概率放过
+ * 检查数组的连号情况（确定性判断，避免随机导致的不可预测重试）
+ * 规则：4+连号 → 坚决拒绝；恰好3连号 → 允许
  */
 function hasTooManyConsecutive(nums) {
     let consec = 1;
@@ -461,14 +453,12 @@ function hasTooManyConsecutive(nums) {
         if (nums[i] - nums[i - 1] === 1) {
             consec++;
         } else {
-            if (consec >= 4) return true;           // 4+连号 → 拒绝
-            if (consec === 3 && Math.random() > 0.4) return true;  // 3连号 → 约40%放过
+            if (consec >= 4) return true;  // 4+连号 → 拒绝
             consec = 1;
         }
     }
     // 处理末尾的连号
     if (consec >= 4) return true;
-    if (consec === 3 && Math.random() > 0.4) return true;   // 3连号 → 约40%放过
     return false;
 }
 
@@ -524,8 +514,8 @@ function strategyParityDriven(min, max, count, allowedRatios) {
         else evens.push(i);
     }
 
-    // 最多重试 50 次
-    for (let attempt = 0; attempt < 50; attempt++) {
+    // 最多重试 10 次
+    for (let attempt = 0; attempt < 10; attempt++) {
         const pickedOdds = shuffle(odds).slice(0, oddTarget).sort((a, b) => a - b);
         const pickedEvens = shuffle(evens).slice(0, evenTarget).sort((a, b) => a - b);
         const merged = [...pickedOdds, ...pickedEvens].sort((a, b) => a - b);
@@ -545,7 +535,7 @@ function strategyParityDriven(min, max, count, allowedRatios) {
  * 模拟真实开奖号码的和值分布特征。
  */
 function strategySumGuided(min, max, count, sumRange) {
-    for (let attempt = 0; attempt < 80; attempt++) {
+    for (let attempt = 0; attempt < 15; attempt++) {
         const nums = sample(min, max, count);
         const sum = nums.reduce((a, b) => a + b, 0);
         if (sum >= sumRange[0] && sum <= sumRange[1]
@@ -565,7 +555,7 @@ function strategySumGuided(min, max, count, sumRange) {
  * 保证号码有合理的离散度。
  */
 function strategySpanFirst(min, max, count, spanRange) {
-    for (let attempt = 0; attempt < 60; attempt++) {
+    for (let attempt = 0; attempt < 12; attempt++) {
         const first = min + Math.floor(Math.random() * (max - min - spanRange[0] + 1));
         const span = spanRange[0] + Math.floor(Math.random() * (spanRange[1] - spanRange[0] + 1));
         const last = Math.min(first + span, max);
@@ -725,7 +715,7 @@ function handleBatchTypeChange() {
     domCache.kl8PlayGroup.classList.toggle('hidden', !isKL8);
 }
 
-/** 生成批量号码（异步，需先加载历史走势数据） */
+/** 生成批量号码（分块异步执行，避免卡顿） */
 async function generateBatch() {
     const type = domCache.batchType.value;
     let count = parseInt(domCache.batchCount.value);
@@ -765,12 +755,12 @@ async function generateBatch() {
         ? `【${config.name}-${config.plays[parseInt(domCache.batchKL8Play.value)].name}】`
         : `【${config.name}】`;
 
-    const fragment = document.createDocumentFragment();
-
+    // 清空结果区，先显示标题
+    resultsDiv.innerHTML = '';
     const titleDiv = document.createElement('div');
     titleDiv.className = 'stats';
     titleDiv.textContent = titleText;
-    fragment.appendChild(titleDiv);
+    resultsDiv.appendChild(titleDiv);
 
     // 显示走势摘要
     if (mainTrend) {
@@ -786,65 +776,81 @@ async function generateBatch() {
             .slice(0, 5)
             .map(([n]) => fmt(n));
         trendInfo.textContent = `🔥 热号 ${hotNums.join(',')}  |  🧊 冷号 ${coldSnums.join(',')}`;
-        fragment.appendChild(trendInfo);
+        resultsDiv.appendChild(trendInfo);
     }
 
-    if (type === 'kuail8') {
-        const playCount = config.plays[parseInt(domCache.batchKL8Play.value)].count;
-        const kl8Trend = mainTrend ? {
-            history, freqMap: mainTrend.freqMap, coldHotMap: mainTrend.coldHotMap, field: 'red'
-        } : null;
-        appendBatches(fragment, count, () => kl8GroupBallsHTML(playCount, config.cssClass, kl8Trend));
-    } else {
-        appendBatches(fragment, count, () =>
-            config.groups.map(g => {
-                // 蓝球/后区/特别号用副走势
-                const isSub = (g.key === 'blue' || g.key === 'back' || g.key === 'special');
-                if (isSub && subTrend) {
-                    return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
-                        trend: { ...subTrend }
-                    });
-                }
-                // 红球/前区/基本号用主走势
-                if (mainTrend) {
+    // 生成进度提示
+    const progressDiv = document.createElement('div');
+    progressDiv.className = 'stats';
+    progressDiv.style.cssText = 'font-size:12px;color:#888;text-align:center;margin-bottom:8px;';
+    progressDiv.textContent = `⏳ 正在生成 ${count} 注...`;
+    resultsDiv.appendChild(progressDiv);
+
+    // 分块异步生成（每块5注，避免阻塞主线程）
+    const CHUNK_SIZE = 5;
+    for (let start = 0; start < count; start += CHUNK_SIZE) {
+        // 让出主线程，让浏览器有机会处理UI事件
+        await new Promise(r => setTimeout(r, 0));
+
+        const end = Math.min(start + CHUNK_SIZE, count);
+        const fragment = document.createDocumentFragment();
+
+        if (type === 'kuail8') {
+            const playCount = config.plays[parseInt(domCache.batchKL8Play.value)].count;
+            const kl8Trend = mainTrend ? {
+                history, freqMap: mainTrend.freqMap, coldHotMap: mainTrend.coldHotMap, field: 'red'
+            } : null;
+            for (let i = start; i < end; i++) {
+                const item = document.createElement('div');
+                item.className = 'batch-item';
+                item.innerHTML = `<div class="batch-balls">${kl8GroupBallsHTML(playCount, config.cssClass, kl8Trend)}</div>`;
+                fragment.appendChild(item);
+            }
+        } else {
+            for (let i = start; i < end; i++) {
+                const item = document.createElement('div');
+                item.className = 'batch-item';
+                const ballsHtml = config.groups.map(g => {
+                    const isSub = (g.key === 'blue' || g.key === 'back' || g.key === 'special');
+                    if (isSub && subTrend) {
+                        return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
+                            trend: { ...subTrend }
+                        });
+                    }
+                    if (mainTrend) {
+                        return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
+                            zones: config.zones,
+                            sumRange: config.sumRange,
+                            parityRatios: config.parityRatios,
+                            spanRange: config.spanRange,
+                            trend: { ...mainTrend }
+                        });
+                    }
+                    if (isSub) {
+                        return sample(g.min, g.max, g.count)
+                            .map(n => ballHTML(n, g.cssClass)).join('');
+                    }
                     return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
                         zones: config.zones,
                         sumRange: config.sumRange,
                         parityRatios: config.parityRatios,
-                        spanRange: config.spanRange,
-                        trend: { ...mainTrend }
+                        spanRange: config.spanRange
                     });
-                }
-                // 无走势数据时回退原始策略
-                if (isSub) {
-                    return sample(g.min, g.max, g.count)
-                        .map(n => ballHTML(n, g.cssClass)).join('');
-                }
-                return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
-                    zones: config.zones,
-                    sumRange: config.sumRange,
-                    parityRatios: config.parityRatios,
-                    spanRange: config.spanRange
-                });
-            }).join('')
-        );
+                }).join('');
+                item.innerHTML = `<div class="batch-balls">${ballsHtml}</div>`;
+                fragment.appendChild(item);
+            }
+        }
+
+        resultsDiv.appendChild(fragment);
+
+        // 更新进度
+        progressDiv.textContent = `⏳ 正在生成 ${count} 注... (${Math.min(end, count)}/${count})`;
     }
 
-    resultsDiv.innerHTML = '';
-    resultsDiv.appendChild(fragment);
+    // 生成完成
+    progressDiv.textContent = `✅ 已生成 ${count} 注`;
     resultsDiv.scrollIntoView({ behavior: 'smooth' });
-}
-
-/**
- * 通用批量追加投注条目
- */
-function appendBatches(fragment, count, ballsFn) {
-    for (let i = 0; i < count; i++) {
-        const item = document.createElement('div');
-        item.className = 'batch-item';
-        item.innerHTML = `<div class="batch-balls">${ballsFn()}</div>`;
-        fragment.appendChild(item);
-    }
 }
 
 // ==================== 初始化 ====================
