@@ -55,10 +55,29 @@ async function preloadDrawData() {
         statusEl.textContent = '⏳ 正在下载开奖数据...';
 
         for (const file of ALL_DATA_FILES) {
-            const url = `${DATA_PATH_REMOTE}/${file}`;
             statusEl.textContent = `⏳ 正在下载 ${file}...`;
-            const resp = await fetch(url);
-            if (!resp.ok) throw new Error(`${file} 下载失败 (HTTP ${resp.status})`);
+
+            // 先尝试远程（data-auto分支），超时10秒；失败则降级到本地
+            let resp;
+            try {
+                resp = await fetch(`${DATA_PATH_REMOTE}/${file}`, {
+                    signal: AbortSignal.timeout(10000)
+                });
+            } catch {
+                // 远程超时或失败，尝试本地
+                try {
+                    resp = await fetch(`${DATA_PATH_LOCAL}/${file}`, {
+                        signal: AbortSignal.timeout(5000)
+                    });
+                } catch {
+                    throw new Error(`${file} 下载超时，请检查网络后重试`);
+                }
+            }
+
+            if (!resp || !resp.ok) {
+                throw new Error(`${file} 下载失败 (HTTP ${resp ? resp.status : '无响应'})`);
+            }
+
             const json = await resp.json();
             localStorage.setItem('lottery-' + file, JSON.stringify(json));
         }
@@ -67,7 +86,7 @@ async function preloadDrawData() {
         statusEl.textContent = '✅ 所有开奖数据已缓存到本地！后续页面将优先使用缓存数据。';
         if (btn) { btn.textContent = '✅ 已加载'; btn.disabled = false; }
     } catch (e) {
-        statusEl.textContent = `❌ 加载失败：${e.message}，请稍后重试`;
+        statusEl.textContent = `❌ 加载失败：${e.message}`;
         if (btn) { btn.disabled = false; }
     }
 }
