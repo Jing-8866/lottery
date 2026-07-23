@@ -4,10 +4,10 @@
 
 // ==================== 数据路径（各页面共用） ====================
 
-/** 本地开发路径 */
+/** 本地路径（与页面同域，GitHub Pages 上可正常访问） */
 const DATA_PATH_LOCAL = 'data';
-/** 线上部署路径（从 data-auto 分支读取） */
-const DATA_PATH_REMOTE = 'https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data';
+/** 线上远程路径（data-auto 分支，通过 jsDelivr CDN 加速，国内可访问） */
+const DATA_PATH_REMOTE = 'https://cdn.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data';
 /** 所有彩种对应的 JSON 文件名 */
 const ALL_DATA_FILES = ['ssq.json', 'dlt.json', 'qlc.json', 'kl8.json', 'qxc.json'];
 
@@ -57,25 +57,11 @@ async function preloadDrawData() {
         for (const file of ALL_DATA_FILES) {
             statusEl.textContent = `⏳ 正在下载 ${file}...`;
 
-            // 先尝试远程（data-auto分支），超时10秒；失败则降级到本地
-            let resp;
-            try {
-                resp = await fetch(`${DATA_PATH_REMOTE}/${file}`, {
-                    signal: AbortSignal.timeout(10000)
-                });
-                // 远程返回非200也算失败，触发降级
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            } catch {
-                // 远程失败，尝试本地
-                try {
-                    resp = await fetch(`${DATA_PATH_LOCAL}/${file}`, {
-                        signal: AbortSignal.timeout(5000)
-                    });
-                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                } catch (e2) {
-                    throw new Error(`${file} 下载失败，远程和本地均不可用 (${e2.message})`);
-                }
-            }
+            // data/ 目录仅在 data-auto 分支中，直接请求远程CDN
+            const resp = await fetch(`${DATA_PATH_REMOTE}/${file}`, {
+                signal: AbortSignal.timeout(15000)
+            });
+            if (!resp.ok) throw new Error(`${file} 下载失败 (HTTP ${resp.status})`);
 
             const json = await resp.json();
             localStorage.setItem('lottery-' + file, JSON.stringify(json));
