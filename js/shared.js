@@ -63,19 +63,18 @@ async function preloadDrawData() {
                 resp = await fetch(`${DATA_PATH_REMOTE}/${file}`, {
                     signal: AbortSignal.timeout(10000)
                 });
+                // 远程返回非200也算失败，触发降级
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             } catch {
-                // 远程超时或失败，尝试本地
+                // 远程失败，尝试本地
                 try {
                     resp = await fetch(`${DATA_PATH_LOCAL}/${file}`, {
                         signal: AbortSignal.timeout(5000)
                     });
-                } catch {
-                    throw new Error(`${file} 下载超时，请检查网络后重试`);
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                } catch (e2) {
+                    throw new Error(`${file} 下载失败，远程和本地均不可用 (${e2.message})`);
                 }
-            }
-
-            if (!resp || !resp.ok) {
-                throw new Error(`${file} 下载失败 (HTTP ${resp ? resp.status : '无响应'})`);
             }
 
             const json = await resp.json();
