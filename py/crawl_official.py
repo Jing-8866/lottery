@@ -365,7 +365,7 @@ def fallback_parse_qlc(soup):
         if len(nums) >= 7:
             basics = [n.zfill(2) for n in nums[:7]]
             special = nums[7].zfill(2) if len(nums) > 7 else ""
-            data.append({"issue": issue, "date": date, "red": basics, "special": special})
+            data.append({"issue": issue, "date": date, "red": basics, "blue": [special]})
     return data
 
 
@@ -410,7 +410,7 @@ def fallback_parse_qxc(soup):
                     for td in tds if td.get("class") and "chartBall01" in td.get("class")][:7]
             # 查找日期：遍历所有 td 找 YYYY-MM-DD 格式
             date = _extract_date_from_tds(tds)
-            data.append({"issue": seq_no, "date": date, "numbers": nums})
+            data.append({"issue": seq_no, "date": date, "red": nums})
     return data
 
 
@@ -489,6 +489,12 @@ def merge_with_existing(key, new_data):
         replaced_count += 1
 
     merged = list(old_map.values())
+
+    # 清理废弃的旧字段名，统一使用 red/blue
+    DEPRECATED_FIELDS = {"special", "numbers"}
+    for item in merged:
+        for f in DEPRECATED_FIELDS:
+            item.pop(f, None)
 
     # 按数值降序排列（最新期在前），避免字符串比较导致 26081 > 2026082
     merged.sort(key=lambda x: int(x.get("issue", "0")), reverse=True)

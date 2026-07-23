@@ -158,7 +158,7 @@ def parse_qlc(soup):
         if len(nums) >= 7:
             basics = [n.zfill(2) for n in nums[:7]]
             special = nums[7].zfill(2) if len(nums) > 7 else ""
-            data.append({"issue": issue, "date": date, "red": basics, "special": special})
+            data.append({"issue": issue, "date": date, "red": basics, "blue": [special]})
     return data
 
 
@@ -186,7 +186,7 @@ def parse_qxc(soup):
             seq_no = "20" + tr.find("td").get_text().replace(" ", "")
             nums = [td.get_text().strip().zfill(2)
                     for td in tr.findAll("td", class_="chartBall01")][:7]
-            data.append({"issue": seq_no, "date": "", "numbers": nums})
+            data.append({"issue": seq_no, "date": "", "red": nums})
     return data
 
 
@@ -353,6 +353,12 @@ def merge_with_existing(key, new_data):
         replaced_count += 1
 
     merged = list(merged_map.values())
+
+    # 清理废弃的旧字段名，统一使用 red/blue
+    DEPRECATED_FIELDS = {"special", "numbers"}
+    for item in merged:
+        for f in DEPRECATED_FIELDS:
+            item.pop(f, None)
 
     # 按数值降序排列（最新期在前），避免字符串比较导致 26081 > 2026082
     merged.sort(key=lambda x: int(x.get("issue", "0")), reverse=True)
