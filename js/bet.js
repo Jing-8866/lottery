@@ -68,6 +68,27 @@ const lotteryConfig = {
             9:  { name: '选九', count: 9 },
             10: { name: '选十', count: 10 }
         }
+    },
+    fc3d: {
+        name: '福彩3D',
+        groups: [
+            { key: 'digits', label: '3位号码', cssClass: 'mini-ball-green', min: 0, max: 9, count: 3 }
+        ],
+        isPositional: true
+    },
+    pl3: {
+        name: '排列3',
+        groups: [
+            { key: 'digits', label: '3位号码', cssClass: 'mini-ball-green', min: 0, max: 9, count: 3 }
+        ],
+        isPositional: true
+    },
+    pl5: {
+        name: '排列5',
+        groups: [
+            { key: 'digits', label: '5位号码', cssClass: 'mini-ball-green', min: 0, max: 9, count: 5 }
+        ],
+        isPositional: true
     }
 };
 
@@ -116,6 +137,15 @@ const BET_DATA_MAP = {
     ]},
     kuail8: { file: 'kl8.json', groups: [
         { key: 'numbers', field: 'red' }
+    ]},
+    fc3d: { file: 'fc3d.json', groups: [
+        { key: 'digits', field: 'red' }
+    ]},
+    pl3: { file: 'pl3.json', groups: [
+        { key: 'digits', field: 'red' }
+    ]},
+    pl5: { file: 'pl5.json', groups: [
+        { key: 'digits', field: 'red' }
     ]}
 };
 
@@ -845,6 +875,21 @@ async function generateBatch() {
                 const item = document.createElement('div');
                 item.className = 'batch-item';
                 item.innerHTML = `<div class="batch-balls">${kl8GroupBallsHTML(playCount, config.cssClass, kl8Trend)}</div>`;
+                fragment.appendChild(item);
+            }
+        } else if (config.isPositional) {
+            // 定位彩种（福彩3D、排列3、排列5）：每位独立随机 0-9，可重复
+            for (let i = start; i < end; i++) {
+                const item = document.createElement('div');
+                item.className = 'batch-item';
+                const ballsHtml = config.groups.map(g => {
+                    const digits = [];
+                    for (let d = 0; d < g.count; d++) {
+                        digits.push(Math.floor(Math.random() * (g.max - g.min + 1)) + g.min);
+                    }
+                    return digits.map(n => ballHTML(n, g.cssClass)).join('');
+                }).join('');
+                item.innerHTML = `<div class="batch-balls">${ballsHtml}</div>`;
                 fragment.appendChild(item);
             }
         } else {

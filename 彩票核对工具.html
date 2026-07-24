@@ -322,6 +322,141 @@
             </div>
         </div>
 
+        <!-- ========== 福彩3D ========== -->
+        <div class="lottery-panel" id="verify-panel-fc3d">
+            <div class="card">
+                <div class="card-title">📋 福彩3D</div>
+                <div class="lottery-info">从000-999选一个3位数，每位0-9，支持直选/组选</div>
+
+                <div class="two-col">
+                    <div class="col">
+                        <div class="form-row">
+                            <label>我的号码 <span class="hint">（3位数字）</span></label>
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-fc3d-my" placeholder="例: 3,8,1 或 381" value="3,8,1">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-fc3d-my')" tabindex="-1">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-row">
+                            <label>开奖号码 <span class="hint">（3位数字）</span></label>
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-fc3d-win" placeholder="例: 3,8,2 或 382" value="3,8,2">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-fc3d-win')" tabindex="-1">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fetch-row">
+                    <div class="fetch-left">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-fc3d" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('fc3d')" tabindex="-1">✕</button>
+                        </div>
+                        <span class="draw-info" id="verify-draw-info-fc3d"></span>
+                    </div>
+                    <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('fc3d')">📋 奖金对照</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 排列3 ========== -->
+        <div class="lottery-panel" id="verify-panel-pl3">
+            <div class="card">
+                <div class="card-title">📋 排列3</div>
+                <div class="lottery-info">从000-999选一个3位数，每位0-9，支持直选/组选</div>
+
+                <div class="two-col">
+                    <div class="col">
+                        <div class="form-row">
+                            <label>我的号码 <span class="hint">（3位数字）</span></label>
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-pl3-my" placeholder="例: 1,2,3 或 123" value="1,2,3">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-pl3-my')" tabindex="-1">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-row">
+                            <label>开奖号码 <span class="hint">（3位数字）</span></label>
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-pl3-win" placeholder="例: 1,2,3 或 123" value="1,2,3">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-pl3-win')" tabindex="-1">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fetch-row">
+                    <div class="fetch-left">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-pl3" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('pl3')" tabindex="-1">✕</button>
+                        </div>
+                        <span class="draw-info" id="verify-draw-info-pl3"></span>
+                    </div>
+                    <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('pl3')">📋 奖金对照</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== 排列5 ========== -->
+        <div class="lottery-panel" id="verify-panel-pl5">
+            <div class="card">
+                <div class="card-title">📋 排列5</div>
+                <div class="lottery-info">从00000-99999选一个5位数，每位0-9，直选10万元</div>
+
+                <div class="two-col">
+                    <div class="col">
+                        <div class="form-row">
+                            <label>我的号码 <span class="hint">（5位数字）</span></label>
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-pl5-my" placeholder="例: 1,2,3,4,5 或 12345" value="1,2,3,4,5">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-pl5-my')" tabindex="-1">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="form-row">
+                            <label>开奖号码 <span class="hint">（5位数字）</span></label>
+                            <div class="input-clear-wrap">
+                                <input type="text" id="verify-pl5-win" placeholder="例: 1,2,3,4,5 或 12345" value="1,2,3,4,5">
+                                <button class="input-clear-btn" onclick="clearMyInput('verify-pl5-win')" tabindex="-1">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fetch-row">
+                    <div class="fetch-left">
+                        <div class="input-clear-wrap" style="width:130px;flex-shrink:0">
+                            <input type="text" id="verify-issue-pl5" class="issue-input" placeholder="期号(留空=最新)" maxlength="7">
+                            <button class="input-clear-btn" onclick="clearIssueInput('pl5')" tabindex="-1">✕</button>
+                        </div>
+                        <span class="draw-info" id="verify-draw-info-pl5"></span>
+                    </div>
+                    <button class="fetch-btn" onclick="fetchDrawAndFill(this)">📡 获取开奖</button>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-check" onclick="verifyCheck()">🔍 核对中奖</button>
+                    <button class="btn-prize" onclick="showPrizeTable('pl5')">📋 奖金对照</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ========== 结果区域 ========== -->
         <div id="verify-result-section" class="card result-section">
             <div class="card-title">🏆 核对结果</div>

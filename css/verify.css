@@ -261,6 +261,10 @@ input[type="number"]:focus {
     background: linear-gradient(135deg, #27ae60, #2ecc71);
 }
 
+.ball-green {
+    background: linear-gradient(135deg, #27ae60, #2ecc71) !important;
+}
+
 .ball-row .ball-grey {
     background: linear-gradient(135deg, #95a5a6, #7f8c8d);
 }

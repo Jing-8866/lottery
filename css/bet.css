@@ -168,6 +168,11 @@ h1 {
     box-shadow: 0 2px 8px rgba(233,69,96,0.4);
 }
 
+.mini-ball-green {
+    background: linear-gradient(135deg, #26a69a, #00897b);
+    box-shadow: 0 2px 8px rgba(0,137,123,0.4);
+}
+
 .mini-ball-qilecai {
     background: linear-gradient(135deg, #ffa726, #ff9800);
     box-shadow: 0 2px 8px rgba(255,152,0,0.4);

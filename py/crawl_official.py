@@ -20,7 +20,7 @@ import os
 import sys
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # ========== 配置 ==========
 DEBUG = "--debug" in sys.argv
@@ -66,6 +66,11 @@ FC_CONFIG = {
         "name": "快乐8",
         "red_cnt": 20, "blue_cnt": 0,
     },
+    "fc3d": {  # 福彩3D — 官网API用 name=3d
+        "api_name": "3d",
+        "name": "福彩3D",
+        "red_cnt": 3, "blue_cnt": 0,
+    },
 }
 
 # 体彩配置（使用 webapi.sporttery.cn API）
@@ -79,6 +84,16 @@ TC_CONFIG = {
         "game_no": "04",
         "name": "7星彩",
         "front_cnt": 7, "back_cnt": 0,
+    },
+    "pl3": {  # 排列3
+        "game_no": "53",
+        "name": "排列3",
+        "front_cnt": 3, "back_cnt": 0,
+    },
+    "pl5": {  # 排列5
+        "game_no": "35",
+        "name": "排列5",
+        "front_cnt": 5, "back_cnt": 0,
     },
 }
 
@@ -275,6 +290,9 @@ FALLBACK_URLS = {
     "qlc": "https://datachart.500.com/qlc/history/newinc/history.php?start=00001&end=99999&limit=50",
     "kl8": "https://datachart.500.com/kl8/?expect=50",
     "qxc": "https://datachart.500.com/qxc/?expect=50",
+    "fc3d": "https://datachart.500.com/sd/?expect=50",
+    "pl3": "https://datachart.500.com/pls/?expect=50",
+    "pl5": "https://datachart.500.com/plw/?expect=50",
 }
 
 FALLBACK_HEADERS = {
@@ -313,6 +331,12 @@ def fallback_crawl(key):
             return fallback_parse_kl8(soup)
         elif key == "qxc":
             return fallback_parse_qxc(soup)
+        elif key == "fc3d":
+            return fallback_parse_fc3d(soup)
+        elif key == "pl3":
+            return fallback_parse_pl3(soup)
+        elif key == "pl5":
+            return fallback_parse_pl5(soup)
     except ImportError:
         log("[备用] 缺少 beautifulsoup4 或 lxml，无法使用备用方案", "WARN")
         return None
@@ -427,6 +451,147 @@ def fallback_parse_qxc(soup):
     return data
 
 
+def fallback_parse_fc3d(soup):
+    """500.com 福彩3D解析：table#chartsTable, 前3个chartBall01=开奖号码"""
+    data = []
+    tbl = soup.find("table", id="chartsTable")
+    if not tbl:
+        return data
+    for tr in tbl.find_all("tr"):
+        if tr.get("id") or tr.find("td", colspan=True):
+            continue
+        tds = tr.find_all("td")
+        if len(tds) < 5:
+            continue
+        chart01 = [td for td in tds if td.get("class") and "chartBall01" in td.get("class")]
+        if len(chart01) < 3:
+            continue
+        date = tds[0].get_text().strip()
+        issue = tds[1].get_text().strip()
+        nums = [td.get_text().strip().zfill(2) for td in chart01[:3]]
+        if not issue or not nums:
+            continue
+        data.append({"issue": issue, "date": date, "red": nums})
+    return data
+
+
+def fallback_parse_pl3(soup):
+    """500.com 排列3解析：table#chartsTable, 前3个chartBall01=开奖号码"""
+    data = []
+    tbl = soup.find("table", id="chartsTable")
+    if not tbl:
+        return data
+    for tr in tbl.find_all("tr"):
+        if tr.get("id") or tr.find("td", colspan=True):
+            continue
+        tds = tr.find_all("td")
+        if len(tds) < 5:
+            continue
+        chart01 = [td for td in tds if td.get("class") and "chartBall01" in td.get("class")]
+        if len(chart01) < 3:
+            continue
+        date = tds[0].get_text().strip()
+        issue = tds[1].get_text().strip()
+        nums = [td.get_text().strip().zfill(2) for td in chart01[:3]]
+        if not issue or not nums:
+            continue
+        data.append({"issue": issue, "date": date, "red": nums})
+    return data
+
+
+def fallback_parse_pl5(soup):
+    """
+    500.com 排列5解析：
+    每行3个chartBall01 + 2个chartBall03交错排列得5位号码
+    """
+    data = []
+    tbl = soup.find("table", id="chartsTable")
+    if not tbl:
+        return data
+    for tr in tbl.find_all("tr"):
+        if tr.get("id") or tr.find("td", colspan=True):
+            continue
+        tds = tr.find_all("td")
+        chart_tds = [td for td in tds if td.get("class") and any(
+            c.startswith("chartBall") for c in td.get("class")
+        )]
+        if len(chart_tds) < 5:
+            continue
+        nums = [td.get_text().strip().zfill(2) for td in chart_tds[:5]]
+        if not nums:
+            continue
+        issue = tds[0].get_text().strip()
+        date = _extract_date_from_tds(tds)
+        data.append({"issue": issue, "date": date, "red": nums})
+    return data
+
+
+def _apply_pl5_fallback_dates(data):
+    """从开奖结果页和pl3数据交叉补充pl5的日期"""
+    import re
+    # 1) 先从kaijiang页获取最新一期日期
+    kj_issue = None
+    kj_date = None
+    try:
+        r = requests.get("https://kaijiang.500.com/plw.shtml",
+            headers=FALLBACK_HEADERS, timeout=TIMEOUT)
+        if r.status_code == 200:
+            html = r.content.decode("gbk", errors="ignore")
+            text = re.sub(r'<[^>]+>', '', html)
+            issue_m = re.search(r'(\d{5,7})\s*期', text)
+            date_m = re.search(r'开奖日期[：:]\s*(\d{4})年(\d+)月(\d+)日', html)
+            if issue_m and date_m:
+                kj_issue = issue_m.group(1)
+                kj_date = f"{date_m.group(1)}-{int(date_m.group(2)):02d}-{int(date_m.group(3)):02d}"
+    except Exception as e:
+        log(f"pl5: kaijiang页请求失败 - {e}", "WARN")
+
+    # 2) 从已有的 pl3.json 加载日期映射（排列3与排列5期号相同）
+    pl3_dates = {}
+    pl3_path = os.path.join(DATA_DIR, "pl3.json")
+    if os.path.isfile(pl3_path):
+        try:
+            with open(pl3_path, "r", encoding="utf-8") as f:
+                pl3_data = json.load(f).get("data", [])
+            for item in pl3_data:
+                if item.get("date"):
+                    pl3_dates[item["issue"]] = item["date"]
+        except Exception as e:
+            log(f"pl5: 读取pl3.json失败 - {e}", "WARN")
+
+    # 3) 为每条数据填充日期
+    filled = 0
+    for item in data:
+        issue = item.get("issue", "")
+        if not issue:
+            continue
+        # 统一转为7位期号用于匹配
+        norm_issue = normalize_issue(issue)
+        # 优先用kaijiang日期
+        if kj_issue and kj_date and norm_issue in {normalize_issue(kj_issue)}:
+            item["date"] = kj_date
+            filled += 1
+        # 其次从pl3数据取
+        elif norm_issue in pl3_dates:
+            item["date"] = pl3_dates[norm_issue]
+            item["issue"] = norm_issue
+            filled += 1
+        # 或者尝试从 issue 反推日期（如 2026195 → 2026年第195天 → 2026-07-14）
+        elif len(norm_issue) == 7:
+            try:
+                year = int(norm_issue[:4])
+                day_of_year = int(norm_issue[4:])
+                d = datetime(year, 1, 1) + timedelta(days=day_of_year - 1)
+                item["date"] = d.strftime("%Y-%m-%d")
+                item["issue"] = norm_issue
+                filled += 1
+            except:
+                pass
+
+    if filled > 0:
+        log(f"pl5: 已补充 {filled} 期日期")
+
+
 # ========== 彩种分发（含自动降级）==========
 
 CRAWLERS = {}
@@ -439,6 +604,18 @@ for k in TC_CONFIG:
 
 def crawl_with_fallback(key):
     """尝试官方 API，失败后自动降级到 500.com"""
+    # 排列3/排列5的官方API（gameNo=35/53）只返回3位数非完整数据，直接走500.com
+    if key in ("pl3", "pl5"):
+        log(f"[{key}] 官方API数据不完整，直接使用500.com备用方案...")
+        fb_data = fallback_crawl(key)
+        if fb_data is not None and len(fb_data) > 0:
+            log(f"备用方案成功: {key} 获取到 {len(fb_data)} 期")
+            # pl5 从 kaijiang 页面补充日期
+            if key == "pl5":
+                _apply_pl5_fallback_dates(fb_data)
+            return fb_data
+        raise Exception(f"{key} 500.com备用方案失败")
+
     try:
         return CRAWLERS[key](key)
     except Exception as e:

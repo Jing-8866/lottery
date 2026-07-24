@@ -566,6 +566,211 @@ function calcQXC() {
     }
 }
 
+// ==================== 福彩3D ====================
+// 规则：从000-999选一个3位数，直选1040元，组三346元，组六173元
+const fc3dPrizeConfig = [
+    { rank: '直选（定位）', match: 3, prize: 1040, desc: '3位全中且顺序一致' },
+    { rank: '组选三', match: 3, prize: 346, desc: '3个号全中(有重复数字,不排序)' },
+    { rank: '组选六', match: 3, prize: 173, desc: '3个号全中(无重复数字,不排序)' }
+];
+
+function fc3dShowPrizeList() {
+    const tbody = document.getElementById("fc3d-list");
+    if (!tbody) return;
+    fc3dPrizeConfig.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.rank}</td>
+            <td>${item.desc}</td>
+            <td>${item.prize}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function calcFC3D() {
+    const matchCount = parseInt(document.getElementById("fc3d-match").value) || 0;
+    const hasRepeat = document.getElementById("fc3d-repeat")?.value === "1";
+
+    const resultDiv = document.getElementById("result-fc3d");
+    const detailTable = document.getElementById("detail-fc3d");
+    const detailBody = document.getElementById("detail-body-fc3d");
+    detailBody.innerHTML = "";
+
+    if (isNaN(matchCount) || matchCount < 0 || matchCount > 3) {
+        resultDiv.innerText = "❌ 匹配个数应在0-3之间！";
+        detailTable.style.display = "none";
+        return;
+    }
+
+    const betAmount = 2;
+    let prizeValue = 0;
+    let matchedRank = '';
+    let hasAny = false;
+
+    if (matchCount === 3) {
+        // 直选
+        hasAny = true;
+        matchedRank = '直选（定位）';
+        prizeValue = 1040;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>直选（定位）</td><td>3位全中且顺序一致</td><td>✅ 中奖</td><td>1040 元</td>`;
+        detailBody.appendChild(tr);
+
+        // 组选
+        if (hasRepeat) {
+            const tr2 = document.createElement("tr");
+            tr2.innerHTML = `<td>组选三</td><td>3个号全中(有重复)</td><td>✅ 中奖</td><td>346 元</td>`;
+            detailBody.appendChild(tr2);
+        } else {
+            const tr2 = document.createElement("tr");
+            tr2.innerHTML = `<td>组选六</td><td>3个号全中(无重复)</td><td>✅ 中奖</td><td>173 元</td>`;
+            detailBody.appendChild(tr2);
+        }
+    }
+
+    if (!hasAny) {
+        resultDiv.innerHTML = `🎟️ 投注金额：2 元<br>😢 未中奖`;
+        detailTable.style.display = "none";
+    } else {
+        resultDiv.innerHTML = `
+            🎟️ 投注金额：2 元<br>
+            💰 中奖奖金（${matchedRank}）：${prizeValue} 元<br>
+            📉 净赚：+${(prizeValue - 2).toFixed(2)} 元
+        `;
+        detailTable.style.display = "table";
+    }
+}
+
+// ==================== 排列3 ====================
+// 规则同福彩3D
+const pl3PrizeConfig = fc3dPrizeConfig;
+
+function pl3ShowPrizeList() {
+    const tbody = document.getElementById("pl3-list");
+    if (!tbody) return;
+    pl3PrizeConfig.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.rank}</td>
+            <td>${item.desc}</td>
+            <td>${item.prize}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function calcPL3() {
+    const matchCount = parseInt(document.getElementById("pl3-match").value) || 0;
+    const hasRepeat = document.getElementById("pl3-repeat")?.value === "1";
+
+    const resultDiv = document.getElementById("result-pl3");
+    const detailTable = document.getElementById("detail-pl3");
+    const detailBody = document.getElementById("detail-body-pl3");
+    detailBody.innerHTML = "";
+
+    if (isNaN(matchCount) || matchCount < 0 || matchCount > 3) {
+        resultDiv.innerText = "❌ 匹配个数应在0-3之间！";
+        detailTable.style.display = "none";
+        return;
+    }
+
+    const betAmount = 2;
+    let prizeValue = 0;
+    let matchedRank = '';
+    let hasAny = false;
+
+    if (matchCount === 3) {
+        hasAny = true;
+        matchedRank = '直选（定位）';
+        prizeValue = 1040;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>直选（定位）</td><td>3位全中且顺序一致</td><td>✅ 中奖</td><td>1040 元</td>`;
+        detailBody.appendChild(tr);
+
+        if (hasRepeat) {
+            const tr2 = document.createElement("tr");
+            tr2.innerHTML = `<td>组选三</td><td>3个号全中(有重复)</td><td>✅ 中奖</td><td>346 元</td>`;
+            detailBody.appendChild(tr2);
+        } else {
+            const tr2 = document.createElement("tr");
+            tr2.innerHTML = `<td>组选六</td><td>3个号全中(无重复)</td><td>✅ 中奖</td><td>173 元</td>`;
+            detailBody.appendChild(tr2);
+        }
+    }
+
+    if (!hasAny) {
+        resultDiv.innerHTML = `🎟️ 投注金额：2 元<br>😢 未中奖`;
+        detailTable.style.display = "none";
+    } else {
+        resultDiv.innerHTML = `
+            🎟️ 投注金额：2 元<br>
+            💰 中奖奖金（${matchedRank}）：${prizeValue} 元<br>
+            📉 净赚：+${(prizeValue - 2).toFixed(2)} 元
+        `;
+        detailTable.style.display = "table";
+    }
+}
+
+// ==================== 排列5 ====================
+// 规则：从00000-99999选一个5位数，直选10万元
+const pl5PrizeConfig = [
+    { rank: '一等奖', match: 5, prize: 100000, desc: '5位全中且顺序一致' }
+];
+
+function pl5ShowPrizeList() {
+    const tbody = document.getElementById("pl5-list");
+    if (!tbody) return;
+    pl5PrizeConfig.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${item.rank}</td>
+            <td>${item.desc}</td>
+            <td>${item.prize.toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function calcPL5() {
+    const matchCount = parseInt(document.getElementById("pl5-match").value) || 0;
+
+    const resultDiv = document.getElementById("result-pl5");
+    const detailTable = document.getElementById("detail-pl5");
+    const detailBody = document.getElementById("detail-body-pl5");
+    detailBody.innerHTML = "";
+
+    if (isNaN(matchCount) || matchCount < 0 || matchCount > 5) {
+        resultDiv.innerText = "❌ 匹配个数应在0-5之间！";
+        detailTable.style.display = "none";
+        return;
+    }
+
+    const betAmount = 2;
+    let prizeValue = 0;
+    let hasAny = false;
+
+    if (matchCount === 5) {
+        hasAny = true;
+        prizeValue = 100000;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>一等奖</td><td>5位全中且顺序一致</td><td>✅ 中奖</td><td>100,000 元</td>`;
+        detailBody.appendChild(tr);
+    }
+
+    if (!hasAny) {
+        resultDiv.innerHTML = `🎟️ 投注金额：2 元<br>😢 未中奖`;
+        detailTable.style.display = "none";
+    } else {
+        resultDiv.innerHTML = `
+            🎟️ 投注金额：2 元<br>
+            💰 中奖奖金（一等奖）：${prizeValue.toLocaleString()} 元<br>
+            📉 净赚：+${(prizeValue - 2).toFixed(2)} 元
+        `;
+        detailTable.style.display = "table";
+    }
+}
+
 // ==================== 面板切换 ====================
 
 let currentLottery = null;
@@ -637,6 +842,9 @@ window.onload = function () {
     kl8ShowPrizeList();
     qlcShowPrizeList();
     qxcShowPrizeList();
+    fc3dShowPrizeList();
+    pl3ShowPrizeList();
+    pl5ShowPrizeList();
 
     document.getElementById('category-select').value = 'fc';
     updateLotterySelect();

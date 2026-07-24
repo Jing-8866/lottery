@@ -9,7 +9,7 @@ const DATA_PATH_LOCAL = 'data';
 /** 线上远程路径（data-auto 分支，通过 jsDelivr CDN 加速，国内可访问） */
 const DATA_PATH_REMOTE = 'https://cdn.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data';
 /** 所有彩种对应的 JSON 文件名 */
-const ALL_DATA_FILES = ['ssq.json', 'dlt.json', 'qlc.json', 'kl8.json', 'qxc.json'];
+const ALL_DATA_FILES = ['ssq.json', 'dlt.json', 'qlc.json', 'kl8.json', 'qxc.json', 'fc3d.json', 'pl3.json', 'pl5.json'];
 
 // 组合数计算 C(n, r)
 function comb(n, r) {
@@ -29,14 +29,17 @@ const lotteryData = {
         lotteries: [
             { id: 'ssq', name: '双色球' },
             { id: 'qlc', name: '七乐彩' },
-            { id: 'kl8', name: '快乐8' }
+            { id: 'kl8', name: '快乐8' },
+            { id: 'fc3d', name: '福彩3D' }
         ]
     },
     tc: {
         name: '体育彩票',
         lotteries: [
             { id: 'dlt', name: '大乐透' },
-            { id: 'qxc', name: '七星彩' }
+            { id: 'qxc', name: '七星彩' },
+            { id: 'pl3', name: '排列3' },
+            { id: 'pl5', name: '排列5' }
         ]
     }
 };

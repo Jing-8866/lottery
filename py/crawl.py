@@ -59,6 +59,18 @@ LOTTERY_CONFIG = {
         "url": "https://datachart.500.com/qxc/?expect=50",
         "red_cnt": 7, "blue_cnt": 0,
     },
+    "fc3d": {  # 福彩3D
+        "url": "https://datachart.500.com/sd/?expect=50",
+        "red_cnt": 3, "blue_cnt": 0,
+    },
+    "pl3": {  # 排列3
+        "url": "https://datachart.500.com/pls/?expect=50",
+        "red_cnt": 3, "blue_cnt": 0,
+    },
+    "pl5": {  # 排列5
+        "url": "https://datachart.500.com/plw/?expect=50",
+        "red_cnt": 5, "blue_cnt": 0,
+    },
 }
 
 
@@ -195,6 +207,85 @@ def parse_qxc(soup):
     return data
 
 
+def parse_fc3d(soup):
+    """福彩3D（走势图页面）：table#chartsTable, 前3个chartBall01=开奖号码"""
+    data = []
+    tbl = soup.find("table", id="chartsTable")
+    if not tbl:
+        return data
+    for tr in tbl.find_all("tr"):
+        if tr.get("id") or tr.find("td", colspan=True):
+            continue
+        tds = tr.find_all("td")
+        if len(tds) < 5:
+            continue
+        # 取前3个chartBall01（fc3d用width=18，pl3用width=30）
+        chart01 = [td for td in tds if td.get("class") and "chartBall01" in td.get("class")]
+        if len(chart01) < 3:
+            continue
+        date = tds[0].get_text().strip()
+        issue = tds[1].get_text().strip()
+        nums = [td.get_text().strip().zfill(2) for td in chart01[:3]]
+        if not issue or not nums:
+            continue
+        data.append({"issue": issue, "date": date, "red": nums})
+    return data
+
+
+def parse_pl3(soup):
+    """排列3（走势图页面）：结构与福彩3D相同"""
+    data = []
+    tbl = soup.find("table", id="chartsTable")
+    if not tbl:
+        return data
+    for tr in tbl.find_all("tr"):
+        if tr.get("id") or tr.find("td", colspan=True):
+            continue
+        tds = tr.find_all("td")
+        if len(tds) < 5:
+            continue
+        chart01 = [td for td in tds if td.get("class") and "chartBall01" in td.get("class")]
+        if len(chart01) < 3:
+            continue
+        date = tds[0].get_text().strip()
+        issue = tds[1].get_text().strip()
+        nums = [td.get_text().strip().zfill(2) for td in chart01[:3]]
+        if not issue or not nums:
+            continue
+        data.append({"issue": issue, "date": date, "red": nums})
+    return data
+
+
+def parse_pl5(soup):
+    """
+    排列5（走势图页面）：
+    每行有3个chartBall01和2个chartBall03，交错排列得5位号码。
+    按出现顺序：chartBall01(位1) → chartBall03(位2) → chartBall01(位3) → chartBall03(位4) → chartBall01(位5)
+    """
+    data = []
+    tbl = soup.find("table", id="chartsTable")
+    if not tbl:
+        return data
+    for tr in tbl.find_all("tr"):
+        if tr.get("id") or tr.find("td", colspan=True):
+            continue
+        # 按文档顺序收集所有chartBall类型的td
+        tds = tr.find_all("td")
+        chart_tds = [td for td in tds if td.get("class") and any(
+            c.startswith("chartBall") for c in td.get("class")
+        )]
+        if len(chart_tds) < 5:
+            continue
+        # 取前5个chartBall作为5位号码
+        nums = [td.get_text().strip().zfill(2) for td in chart_tds[:5]]
+        if not nums:
+            continue
+        # 期号在第一列
+        first_td_text = tds[0].get_text().strip()
+        data.append({"issue": first_td_text, "date": "", "red": nums})
+    return data
+
+
 # ========== 彩种分发 ==========
 
 # ========== 500.com 开奖结果页面（带日期，用于补充 kl8/qxc 缺失的日期）==========
@@ -202,6 +293,7 @@ def parse_qxc(soup):
 KAIJIANG_URLS = {
     "kl8": "https://kaijiang.500.com/kl8.shtml",
     "qxc": "https://kaijiang.500.com/qxc.shtml",
+    "pl5": "https://kaijiang.500.com/plw.shtml",
 }
 
 
@@ -265,9 +357,12 @@ PARSERS = {
     "qlc": parse_qlc,
     "kl8": parse_kl8,
     "qxc": parse_qxc,
+    "fc3d": parse_fc3d,
+    "pl3": parse_pl3,
+    "pl5": parse_pl5,
 }
 
-PARSERS_NEED_DATE = {"kl8", "qxc"}
+PARSERS_NEED_DATE = {"kl8", "qxc", "pl5"}
 
 
 def crawl_one(key):

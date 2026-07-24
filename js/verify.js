@@ -46,6 +46,15 @@ const FIELD_MAP = {
     ]},
     qxc: { file: 'qxc.json', groups: [
         { key: 'digits', src: 'red' }
+    ]},
+    fc3d: { file: 'fc3d.json', groups: [
+        { key: 'digits', src: 'red' }
+    ]},
+    pl3: { file: 'pl3.json', groups: [
+        { key: 'digits', src: 'red' }
+    ]},
+    pl5: { file: 'pl5.json', groups: [
+        { key: 'digits', src: 'red' }
     ]}
 };
 
@@ -108,14 +117,17 @@ const verifyLotteryData = {
         lotteries: [
             { id: 'ssq', name: '双色球' },
             { id: 'qlc', name: '七乐彩' },
-            { id: 'kl8', name: '快乐8' }
+            { id: 'kl8', name: '快乐8' },
+            { id: 'fc3d', name: '福彩3D' }
         ]
     },
     tc: {
         name: '体育彩票',
         lotteries: [
             { id: 'dlt', name: '大乐透' },
-            { id: 'qxc', name: '七星彩' }
+            { id: 'qxc', name: '七星彩' },
+            { id: 'pl3', name: '排列3' },
+            { id: 'pl5', name: '排列5' }
         ]
     }
 };
@@ -223,6 +235,40 @@ const verifyTypeConfig = {
             { front: 4, back: 0, rank: '六等奖', prize: 10 },
             { front: 3, back: 1, rank: '六等奖', prize: 10 },
             { front: 2, back: 1, rank: '七等奖', prize: 5 }
+        ]
+    },
+    fc3d: {
+        name: '福彩3D',
+        info: '从000-999选一个3位数，每位0-9',
+        groups: [
+            { key: 'digits', label: '3位号码', cssClass: 'ball-green', expected: 3, min: 0, max: 9, fixedLength: 3 }
+        ],
+        prizes: [
+            { rank: '直选（定位）', prize: 1040, desc: '3位全中且顺序一致' },
+            { rank: '组选三', prize: 346, desc: '3个号全中(有重复,不排序)' },
+            { rank: '组选六', prize: 173, desc: '3个号全中(无重复,不排序)' }
+        ]
+    },
+    pl3: {
+        name: '排列3',
+        info: '从000-999选一个3位数，每位0-9',
+        groups: [
+            { key: 'digits', label: '3位号码', cssClass: 'ball-green', expected: 3, min: 0, max: 9, fixedLength: 3 }
+        ],
+        prizes: [
+            { rank: '直选（定位）', prize: 1040, desc: '3位全中且顺序一致' },
+            { rank: '组选三', prize: 346, desc: '3个号全中(有重复,不排序)' },
+            { rank: '组选六', prize: 173, desc: '3个号全中(无重复,不排序)' }
+        ]
+    },
+    pl5: {
+        name: '排列5',
+        info: '从00000-99999选一个5位数，每位0-9',
+        groups: [
+            { key: 'digits', label: '5位号码', cssClass: 'ball-green', expected: 5, min: 0, max: 9, fixedLength: 5 }
+        ],
+        prizes: [
+            { rank: '一等奖', prize: 100000, desc: '5位全中且顺序一致' }
         ]
     }
 };
@@ -349,6 +395,12 @@ function verifyCheck() {
         verifyCheckSSQ(config, resultContent);
     } else if (id === 'dlt') {
         verifyCheckDLT(config, resultContent);
+    } else if (id === 'fc3d') {
+        verifyCheckFC3D(config, resultContent);
+    } else if (id === 'pl3') {
+        verifyCheckPL3(config, resultContent);
+    } else if (id === 'pl5') {
+        verifyCheckPL5(config, resultContent);
     }
 }
 
@@ -630,6 +682,231 @@ function verifyCheckQXC(config, resultContent) {
     resultContent.innerHTML = html;
 }
 
+// ==================== 福彩3D核对 ====================
+
+function verifyCheckFC3D(config, resultContent) {
+    const myDigits = parseDigits(document.getElementById('verify-fc3d-my').value);
+    const winDigits = parseDigits(document.getElementById('verify-fc3d-win').value);
+
+    if (myDigits.length !== 3) {
+        resultContent.innerHTML = '<div class="result-summary">❌ 请输入3位投注号码</div>';
+        return;
+    }
+    if (winDigits.length !== 3) {
+        resultContent.innerHTML = '<div class="result-summary">❌ 请输入3位开奖号码</div>';
+        return;
+    }
+
+    // 定位匹配
+    let matchCount = 0;
+    for (let i = 0; i < 3; i++) {
+        if (myDigits[i] === winDigits[i]) matchCount++;
+    }
+
+    // 不排序匹配（判断组选）
+    const mySorted = [...myDigits].sort((a, b) => a - b);
+    const winSorted = [...winDigits].sort((a, b) => a - b);
+    const allMatchNonseq = mySorted.every((v, i) => v === winSorted[i]);
+
+    // 是否有重复数字
+    const mySet = new Set(myDigits);
+    const hasRepeat = mySet.size < 3;
+
+    let html = buildMatchSummary(matchCount, 3, 'ball-green', '定位匹配');
+    html += '<div class="result-summary" style="margin-top:12px;">🎟️ 共 1 注，投注金额 2 元</div>';
+
+    let prizeVal = 0;
+    let hasWin = false;
+    let matchedRank = '';
+    const tableRows = [];
+
+    if (matchCount === 3) {
+        // 直选
+        hasWin = true;
+        matchedRank = '直选（定位）';
+        prizeVal = 1040;
+        tableRows.push(`<tr>
+            <td>直选（定位）</td>
+            <td>3位全中且顺序一致</td>
+            <td>✅ 中奖</td>
+            <td>1040 元</td>
+        </tr>`);
+    }
+
+    if (allMatchNonseq && matchCount < 3) {
+        hasWin = true;
+        if (hasRepeat) {
+            matchedRank = '组选三';
+            prizeVal = 346;
+            tableRows.push(`<tr>
+                <td>组选三</td>
+                <td>3个号全中(有重复,不排序)</td>
+                <td>✅ 中奖</td>
+                <td>346 元</td>
+            </tr>`);
+        } else {
+            matchedRank = '组选六';
+            prizeVal = 173;
+            tableRows.push(`<tr>
+                <td>组选六</td>
+                <td>3个号全中(无重复,不排序)</td>
+                <td>✅ 中奖</td>
+                <td>173 元</td>
+            </tr>`);
+        }
+    }
+
+    if (!hasWin) {
+        html += '<div class="result-summary" style="margin-top:12px;">😢 未中奖</div>';
+    } else {
+        html += `<div class="result-summary" style="margin-top:12px;">
+            💰 中奖奖金（${matchedRank}）：<span class="big win">${prizeVal.toFixed(2)}</span> 元
+            <br>📉 净赚：<span class="highlight">+${(prizeVal - 2).toFixed(2)}</span> 元
+        </div>`;
+        html += `<div class="result-table-wrapper"><table class="result-table">
+            <thead><tr><th>奖级</th><th>中奖条件</th><th>是否中奖</th><th>单注奖金(元)</th></tr></thead>
+            <tbody>${tableRows.join('')}</tbody></table></div>`;
+    }
+
+    resultContent.innerHTML = html;
+}
+
+// ==================== 排列3核对 ====================
+
+function verifyCheckPL3(config, resultContent) {
+    const myDigits = parseDigits(document.getElementById('verify-pl3-my').value);
+    const winDigits = parseDigits(document.getElementById('verify-pl3-win').value);
+
+    if (myDigits.length !== 3) {
+        resultContent.innerHTML = '<div class="result-summary">❌ 请输入3位投注号码</div>';
+        return;
+    }
+    if (winDigits.length !== 3) {
+        resultContent.innerHTML = '<div class="result-summary">❌ 请输入3位开奖号码</div>';
+        return;
+    }
+
+    let matchCount = 0;
+    for (let i = 0; i < 3; i++) {
+        if (myDigits[i] === winDigits[i]) matchCount++;
+    }
+
+    const mySorted = [...myDigits].sort((a, b) => a - b);
+    const winSorted = [...winDigits].sort((a, b) => a - b);
+    const allMatchNonseq = mySorted.every((v, i) => v === winSorted[i]);
+
+    const mySet = new Set(myDigits);
+    const hasRepeat = mySet.size < 3;
+
+    let html = buildMatchSummary(matchCount, 3, 'ball-green', '定位匹配');
+    html += '<div class="result-summary" style="margin-top:12px;">🎟️ 共 1 注，投注金额 2 元</div>';
+
+    let prizeVal = 0;
+    let hasWin = false;
+    let matchedRank = '';
+    const tableRows = [];
+
+    if (matchCount === 3) {
+        hasWin = true;
+        matchedRank = '直选（定位）';
+        prizeVal = 1040;
+        tableRows.push(`<tr>
+            <td>直选（定位）</td>
+            <td>3位全中且顺序一致</td>
+            <td>✅ 中奖</td>
+            <td>1040 元</td>
+        </tr>`);
+    }
+
+    if (allMatchNonseq && matchCount < 3) {
+        hasWin = true;
+        if (hasRepeat) {
+            matchedRank = '组选三';
+            prizeVal = 346;
+            tableRows.push(`<tr>
+                <td>组选三</td>
+                <td>3个号全中(有重复,不排序)</td>
+                <td>✅ 中奖</td>
+                <td>346 元</td>
+            </tr>`);
+        } else {
+            matchedRank = '组选六';
+            prizeVal = 173;
+            tableRows.push(`<tr>
+                <td>组选六</td>
+                <td>3个号全中(无重复,不排序)</td>
+                <td>✅ 中奖</td>
+                <td>173 元</td>
+            </tr>`);
+        }
+    }
+
+    if (!hasWin) {
+        html += '<div class="result-summary" style="margin-top:12px;">😢 未中奖</div>';
+    } else {
+        html += `<div class="result-summary" style="margin-top:12px;">
+            💰 中奖奖金（${matchedRank}）：<span class="big win">${prizeVal.toFixed(2)}</span> 元
+            <br>📉 净赚：<span class="highlight">+${(prizeVal - 2).toFixed(2)}</span> 元
+        </div>`;
+        html += `<div class="result-table-wrapper"><table class="result-table">
+            <thead><tr><th>奖级</th><th>中奖条件</th><th>是否中奖</th><th>单注奖金(元)</th></tr></thead>
+            <tbody>${tableRows.join('')}</tbody></table></div>`;
+    }
+
+    resultContent.innerHTML = html;
+}
+
+// ==================== 排列5核对 ====================
+
+function verifyCheckPL5(config, resultContent) {
+    const myDigits = parseDigits(document.getElementById('verify-pl5-my').value);
+    const winDigits = parseDigits(document.getElementById('verify-pl5-win').value);
+
+    if (myDigits.length !== 5) {
+        resultContent.innerHTML = '<div class="result-summary">❌ 请输入5位投注号码</div>';
+        return;
+    }
+    if (winDigits.length !== 5) {
+        resultContent.innerHTML = '<div class="result-summary">❌ 请输入5位开奖号码</div>';
+        return;
+    }
+
+    let matchCount = 0;
+    for (let i = 0; i < 5; i++) {
+        if (myDigits[i] === winDigits[i]) matchCount++;
+    }
+
+    let html = buildMatchSummary(matchCount, 5, 'ball-green', '定位匹配');
+    html += '<div class="result-summary" style="margin-top:12px;">🎟️ 共 1 注，投注金额 2 元</div>';
+
+    let hasWin = false;
+    const tableRows = [];
+
+    if (matchCount === 5) {
+        hasWin = true;
+        tableRows.push(`<tr>
+            <td>一等奖</td>
+            <td>5位全中且顺序一致</td>
+            <td>✅ 中奖</td>
+            <td>100,000 元</td>
+        </tr>`);
+    }
+
+    if (!hasWin) {
+        html += '<div class="result-summary" style="margin-top:12px;">😢 未中奖</div>';
+    } else {
+        html += `<div class="result-summary" style="margin-top:12px;">
+            💰 中奖奖金（一等奖）：<span class="big win">100,000.00</span> 元
+            <br>📉 净赚：<span class="highlight">+99,998.00</span> 元
+        </div>`;
+        html += `<div class="result-table-wrapper"><table class="result-table">
+            <thead><tr><th>奖级</th><th>中奖条件</th><th>是否中奖</th><th>单注奖金(元)</th></tr></thead>
+            <tbody>${tableRows.join('')}</tbody></table></div>`;
+    }
+
+    resultContent.innerHTML = html;
+}
+
 // ==================== 通用渲染 ====================
 
 /** 构建命中摘要 */
@@ -771,7 +1048,7 @@ function renderNormalPrizeTable(cfg, container) {
 
         // 中奖条件
         const tdCond = document.createElement('td');
-        tdCond.textContent = buildPrizeCondition(cfg, p);
+        tdCond.textContent = p.desc || buildPrizeCondition(cfg, p);
         tr.appendChild(tdCond);
 
         // 奖金
@@ -961,6 +1238,21 @@ function fillDrawNumbers(lotteryId, data) {
         case 'qxc': {
             const digits = data.groups.find(g => g.key === 'digits');
             if (digits) document.getElementById('verify-qxc-win').value = digits.nums.join(',');
+            break;
+        }
+        case 'fc3d': {
+            const digits = data.groups.find(g => g.key === 'digits');
+            if (digits) document.getElementById('verify-fc3d-win').value = digits.nums.join(',');
+            break;
+        }
+        case 'pl3': {
+            const digits = data.groups.find(g => g.key === 'digits');
+            if (digits) document.getElementById('verify-pl3-win').value = digits.nums.join(',');
+            break;
+        }
+        case 'pl5': {
+            const digits = data.groups.find(g => g.key === 'digits');
+            if (digits) document.getElementById('verify-pl5-win').value = digits.nums.join(',');
             break;
         }
     }

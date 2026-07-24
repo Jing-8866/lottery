@@ -227,6 +227,107 @@
                 </table>
             </div>
         </div>
+
+        <!-- 福彩3D面板 -->
+        <div class="lottery-panel" id="panel-fc3d">
+            <div class="lottery-info">
+                福彩3D：从000-999选一个3位数，每位0-9，每注2元
+            </div>
+
+            <label>匹配个数：</label>
+            <span class="label-hint">（0-3，定位匹配上的位数）</span>
+            <input type="number" id="fc3d-match" min="0" max="3" value="3">
+
+            <label>号码是否有重复数字：</label>
+            <span class="label-hint">（用于判断组三/组六，0=无重复(组六)，1=有重复(组三)）</span>
+            <select id="fc3d-repeat">
+                <option value="0">无重复（组六）</option>
+                <option value="1">有重复（组三）</option>
+            </select>
+
+            <button onclick="calcFC3D()">计算福彩3D奖金</button>
+
+            <div class="result" id="result-fc3d">请在上方输入后点击计算</div>
+
+            <div class="detail-wrapper">
+                <table class="detail-table" id="detail-fc3d" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>奖级</th>
+                            <th>中奖条件</th>
+                            <th>是否中奖</th>
+                            <th>单注奖金(元)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-body-fc3d"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 排列3面板 -->
+        <div class="lottery-panel" id="panel-pl3">
+            <div class="lottery-info">
+                排列3：从000-999选一个3位数，每位0-9，每注2元
+            </div>
+
+            <label>匹配个数：</label>
+            <span class="label-hint">（0-3，定位匹配上的位数）</span>
+            <input type="number" id="pl3-match" min="0" max="3" value="3">
+
+            <label>号码是否有重复数字：</label>
+            <span class="label-hint">（用于判断组三/组六，0=无重复(组六)，1=有重复(组三)）</span>
+            <select id="pl3-repeat">
+                <option value="0">无重复（组六）</option>
+                <option value="1">有重复（组三）</option>
+            </select>
+
+            <button onclick="calcPL3()">计算排列3奖金</button>
+
+            <div class="result" id="result-pl3">请在上方输入后点击计算</div>
+
+            <div class="detail-wrapper">
+                <table class="detail-table" id="detail-pl3" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>奖级</th>
+                            <th>中奖条件</th>
+                            <th>是否中奖</th>
+                            <th>单注奖金(元)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-body-pl3"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 排列5面板 -->
+        <div class="lottery-panel" id="panel-pl5">
+            <div class="lottery-info">
+                排列5：从00000-99999选一个5位数，每位0-9，每注2元
+            </div>
+
+            <label>匹配个数：</label>
+            <span class="label-hint">（0-5，定位匹配上的位数）</span>
+            <input type="number" id="pl5-match" min="0" max="5" value="5">
+
+            <button onclick="calcPL5()">计算排列5奖金</button>
+
+            <div class="result" id="result-pl5">请在上方输入后点击计算</div>
+
+            <div class="detail-wrapper">
+                <table class="detail-table" id="detail-pl5" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>奖级</th>
+                            <th>中奖条件</th>
+                            <th>是否中奖</th>
+                            <th>单注奖金(元)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-body-pl5"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- 奖金对照表 -->
@@ -295,6 +396,45 @@
                     </tr>
                 </thead>
                 <tbody id="qxc-list"></tbody>
+            </table>
+        </div>
+
+        <div class="prize-wrapper" id="table-fc3d" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>奖级</th>
+                        <th>中奖条件</th>
+                        <th>单注奖金(元)</th>
+                    </tr>
+                </thead>
+                <tbody id="fc3d-list"></tbody>
+            </table>
+        </div>
+
+        <div class="prize-wrapper" id="table-pl3" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>奖级</th>
+                        <th>中奖条件</th>
+                        <th>单注奖金(元)</th>
+                    </tr>
+                </thead>
+                <tbody id="pl3-list"></tbody>
+            </table>
+        </div>
+
+        <div class="prize-wrapper" id="table-pl5" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>奖级</th>
+                        <th>中奖条件</th>
+                        <th>单注奖金(元)</th>
+                    </tr>
+                </thead>
+                <tbody id="pl5-list"></tbody>
             </table>
         </div>
     </div>
