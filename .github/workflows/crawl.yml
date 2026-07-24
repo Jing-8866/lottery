@@ -14,10 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 检出仓库代码（含完整历史）
+      - name: 检出 main 分支（含爬虫代码）
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: 设置 Python 环境
         uses: actions/setup-python@v5
@@ -29,33 +27,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 lxml chardet
 
-      - name: 运行 crawl.py 脚本（官方 API）
+      - name: 运行爬虫
         run: python py/crawl.py
 
-      - name: 提交并推送生成的数据到 data-auto 分支
+      - name: 仅推送 data/ 目录到 data-auto 分支
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 先获取远程 data-auto 分支（可能已有之前的提交）
-          git fetch origin data-auto 2>/dev/null || true
+          # 1. 备份生成的 JSON 数据到临时目录
+          cp -r data /tmp/lottery-data
 
-          # 切换到 data-auto 分支（本地已有则切换，没有则基于远程创建，都没有则新建 orphan）
+          # 2. 切换到 data-auto 分支（或新建孤立分支）
+          git fetch origin data-auto 2>/dev/null || true
           if git show-ref --verify --quiet refs/remotes/origin/data-auto; then
             git checkout -B data-auto origin/data-auto
-          elif git show-ref --verify --quiet refs/heads/data-auto; then
-            git checkout data-auto
           else
             git checkout --orphan data-auto
-            git rm -rf . 2>/dev/null || true
           fi
 
-          # 确保 data/ 目录存在
+          # 3. 清空工作目录（保留 .git），只保留 data/
+          rm -rf ./* 2>/dev/null || true
+          find . -maxdepth 1 -not -name '.git' -not -name '.' -exec rm -rf {} + 2>/dev/null || true
           mkdir -p data
+          cp /tmp/lottery-data/*.json data/
 
-          # -f 强制添加被 .gitignore 忽略的文件
+          # 4. 提交并推送（仅 data/*.json）
           git add -f data/
-          git diff --staged --quiet || git commit -m "Auto update lottery data $(date -u +'%Y-%m-%d %H:%M')"
-
-          # 强制推送到 data-auto 分支（数据分支，无冲突风险）
+          git diff --staged --quiet || git commit -m "Auto update lottery data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push --force origin data-auto
