@@ -127,43 +127,26 @@ let historyDataCache = {};
  * @param {string} betType  投注工具中的彩种 ID（如 shuangseqiu）
  * @returns {Promise<object[]>} 历史数据数组（最新期在前）
  */
-function loadHistoryData(betType) {
-    // 有正在进行的请求时，复用该 Promise（避免重复请求）
-    if (historyDataCache[betType] instanceof Promise) {
-        return historyDataCache[betType];
-    }
-
+async function loadHistoryData(betType) {
     const map = BET_DATA_MAP[betType];
-    if (!map) return Promise.resolve([]);
+    if (!map) return [];
 
-    // 将 Promise 存入缓存，并发调用共享同一个请求
-    const promise = (async () => {
-        const localUrl = `${DATA_PATH_LOCAL}/${map.file}`;
-        const remoteUrl = `${DATA_PATH_REMOTE}/${map.file}`;
+    const localUrl = `${DATA_PATH_LOCAL}/${map.file}`;
+    const remoteUrl = `${DATA_PATH_REMOTE}/${map.file}`;
 
-        const resp = await fastestFetch(localUrl, remoteUrl);
-        if (!resp) return [];
+    const resp = await fastestFetch(localUrl, remoteUrl);
+    if (!resp) return [];
 
-        try {
-            const json = await resp.json();
-            const data = json.data || [];
-
-            // 自动缓存到 localStorage，下次页面加载无需网络请求
-            if (data.length > 0) {
-                localStorage.setItem('lottery-' + map.file, JSON.stringify(json));
-            }
-
-            return data;
-        } catch {
-            return [];
-        } finally {
-            // 请求完成后删除缓存标记，下次调用重新从 localStorage 读取最新数据
-            delete historyDataCache[betType];
+    try {
+        const json = await resp.json();
+        const data = json.data || [];
+        if (data.length > 0) {
+            localStorage.setItem('lottery-' + map.file, JSON.stringify(json));
         }
-    })();
-
-    historyDataCache[betType] = promise;
-    return promise;
+        return data;
+    } catch {
+        return [];
+    }
 }
 
 /**
@@ -760,9 +743,8 @@ async function generateBatch() {
 
         // 已有缓存（内存或 localStorage）时不显示加载提示，直接生成
         // 只在实际需要网络请求时才显示，避免每次闪一下"加载历史走势数据"
-        let hasLocalCache = false;
-        try { hasLocalCache = !!localStorage.getItem('lottery-' + (BET_DATA_MAP[type] ? BET_DATA_MAP[type].file : '')); } catch {}
-        const hasCache = !!(historyDataCache[type] || hasLocalCache);
+        let hasCache = false;
+        try { hasCache = !!localStorage.getItem('lottery-' + (BET_DATA_MAP[type] ? BET_DATA_MAP[type].file : '')); } catch {}
         if (!hasCache) {
             resultsDiv.innerHTML = '<div class="stats" style="text-align:center;color:#888;">⏳ 加载历史走势数据...</div>';
             // 让浏览器有机会渲染"加载中"提示
