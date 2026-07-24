@@ -768,19 +768,27 @@ async function generateBatch() {
     let mainTrend = null;
     let subTrend = null;
     if (history.length > 0 && dataMap) {
-        const mainField = dataMap.groups[0].field;
-        const range = config.groups[0];
-        const freqMap = analyzeFrequencies(history, mainField, 80);
-        const coldHotMap = analyzeColdHot(history, mainField, range.max, 30);
-        mainTrend = { history, freqMap, coldHotMap, field: mainField };
+        if (config.groups) {
+            // 普通彩种：从 groups 配置取范围
+            const mainField = dataMap.groups[0].field;
+            const range = config.groups[0];
+            const freqMap = analyzeFrequencies(history, mainField, 80);
+            const coldHotMap = analyzeColdHot(history, mainField, range.max, 30);
+            mainTrend = { history, freqMap, coldHotMap, field: mainField };
 
-        // 也分析蓝球/后区/特别号走势
-        if (dataMap.groups.length > 1) {
-            const subField = dataMap.groups[1].field;
-            const subRange = config.groups[1];
-            const subFreq = analyzeFrequencies(history, subField, 80);
-            const subColdHot = analyzeColdHot(history, subField, subRange.max, 30);
-            subTrend = { history, freqMap: subFreq, coldHotMap: subColdHot, field: subField };
+            if (dataMap.groups.length > 1) {
+                const subField = dataMap.groups[1].field;
+                const subRange = config.groups[1];
+                const subFreq = analyzeFrequencies(history, subField, 80);
+                const subColdHot = analyzeColdHot(history, subField, subRange.max, 30);
+                subTrend = { history, freqMap: subFreq, coldHotMap: subColdHot, field: subField };
+            }
+        } else if (type === 'kuail8') {
+            // 快乐8：没有 groups，直接用 dataMap 的字段和 1-80 范围
+            const mainField = dataMap.groups[0].field;
+            const freqMap = analyzeFrequencies(history, mainField, 80);
+            const coldHotMap = analyzeColdHot(history, mainField, 80, 30);
+            mainTrend = { history, freqMap, coldHotMap, field: mainField };
         }
     }
 
