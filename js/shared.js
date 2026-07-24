@@ -43,7 +43,7 @@ const lotteryData = {
 
 /**
  * 预加载所有彩种的开奖数据到 localStorage。
- * 点击入口页的"加载历史开奖数据"按钮时调用。
+ * 每次点击都尝试下载最新数据（带缓存刷新），下载失败时保留旧缓存。
  */
 async function preloadDrawData() {
     const btn = document.getElementById('preload-btn');
@@ -51,25 +51,52 @@ async function preloadDrawData() {
     if (!statusEl) return;
 
     try {
-        if (btn) { btn.disabled = true; }
-        statusEl.textContent = '⏳ 正在下载开奖数据...';
+        if (btn) { btn.disabled = true; statusEl.textContent = '⏳ 正在获取最新数据...'; }
+
+        let success = 0;
+        let failed = 0;
 
         for (const file of ALL_DATA_FILES) {
             statusEl.textContent = `⏳ 正在下载 ${file}...`;
 
-            // data/ 目录仅在 data-auto 分支中，直接请求远程CDN
-            const resp = await fetch(`${DATA_PATH_REMOTE}/${file}`, {
-                signal: AbortSignal.timeout(15000)
-            });
-            if (!resp.ok) throw new Error(`${file} 下载失败 (HTTP ${resp.status})`);
+            // 加时间戳参数绕过 CDN 缓存，确保拿到最新数据
+            const url = `${DATA_PATH_REMOTE}/${file}?t=${Date.now()}`;
+            let resp;
+            try {
+                resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+            } catch {
+                // 网络请求失败，保留旧缓存
+                failed++;
+                continue;
+            }
+            if (!resp.ok) {
+                failed++;
+                continue;
+            }
 
             const json = await resp.json();
+            // 检查返回的数据是否有效（有期号才算有效）
+            if (!json.data || json.data.length === 0) {
+                failed++;
+                continue;
+            }
+
             localStorage.setItem('lottery-' + file, JSON.stringify(json));
+            success++;
         }
 
         localStorage.setItem('lottery-cache-time', Date.now().toString());
-        statusEl.textContent = '✅ 所有开奖数据已缓存到本地！后续页面将优先使用缓存数据。';
-        if (btn) { btn.textContent = '✅ 已加载'; btn.disabled = false; }
+
+        let msg;
+        if (success > 0 && failed === 0) {
+            msg = `✅ 已更新 ${success} 个文件到最新数据`;
+        } else if (success > 0 && failed > 0) {
+            msg = `⚠️ 已更新 ${success} 个，${failed} 个下载失败（已保留旧缓存）`;
+        } else {
+            msg = `❌ ${failed} 个文件全部下载失败，请检查网络后重试`;
+        }
+        statusEl.textContent = msg;
+        if (btn) { btn.disabled = false; }
     } catch (e) {
         statusEl.textContent = `❌ 加载失败：${e.message}`;
         if (btn) { btn.disabled = false; }
