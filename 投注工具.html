@@ -16,14 +16,36 @@
         <!-- 开奖提示卡片 -->
         <div class="card">
             <div class="lottery-type">📅 开奖提示</div>
-            <div style="text-align: center; color: #555; line-height: 1.8;">
-                <p><strong>🔴 双色球</strong> - 每周二、四、日开奖</p>
-                <p><strong>🟢 大乐透</strong> - 每周一、三、六开奖</p>
-                <p><strong>🟡 七乐彩</strong> - 每周一、三、五开奖（注：七乐彩每周一、三、五开奖，非一、三、五、日）</p>
-                <p><strong>🟣 快乐8</strong> - 每天开奖</p>
-                <p><strong>🔵 福彩3D</strong> - 每天开奖</p>
-                <p><strong>🟢 排列3</strong> - 每天开奖</p>
-                <p><strong>🟢 排列5</strong> - 每天开奖</p>
+            <div id="today-draws" style="text-align: center; color: #555; line-height: 1.8; min-height: 60px;">
+                <div style="color: #888; padding: 10px;">⏳ 加载中...</div>
+            </div>
+            <div style="text-align: center; margin-top: 10px;">
+                <button onclick="showDrawCalendar()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; border-radius: 10px; padding: 10px 24px; font-size: 0.95em; cursor: pointer; transition: transform 0.2s;"
+                    onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    📅 完整开奖日历
+                </button>
+            </div>
+        </div>
+
+        <!-- 开奖日历弹窗 -->
+        <div id="draw-calendar-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;"
+             onclick="if(event.target===this)closeDrawCalendar()">
+            <div style="background:#fff; border-radius:16px; padding:28px 32px; max-width:480px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.3); position:relative;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <span style="font-size:1.3em; font-weight:600; color:#333;">📅 开奖日历</span>
+                    <button onclick="closeDrawCalendar()" style="background:none; border:none; font-size:1.5em; cursor:pointer; color:#999; padding:0 4px;">✕</button>
+                </div>
+                <div style="color:#555; line-height:1.9;">
+                    <div style="font-weight:600; margin:8px 0 4px; color:#e74c3c;">🏮 福利彩票</div>
+                    <p style="margin:2px 0;"><strong>🔴 双色球</strong> - 每周二、四、日开奖</p>
+                    <p style="margin:2px 0;"><strong>🟡 七乐彩</strong> - 每周一、三、五开奖</p>
+                    <p style="margin:2px 0;"><strong>🟣 快乐8</strong> - 每天开奖</p>
+                    <p style="margin:2px 0;"><strong>🔵 福彩3D</strong> - 每天开奖</p>
+                    <div style="font-weight:600; margin:12px 0 4px; color:#27ae60;">⚽ 体育彩票</div>
+                    <p style="margin:2px 0;"><strong>🟢 大乐透</strong> - 每周一、三、六开奖</p>
+                    <p style="margin:2px 0;"><strong>🟢 排列3</strong> - 每天开奖</p>
+                    <p style="margin:2px 0;"><strong>🟢 排列5</strong> - 每天开奖</p>
+                </div>
             </div>
         </div>
 
@@ -31,16 +53,15 @@
         <div id="batchPanel" class="card">
             
             <div class="input-group">
+                <label>彩票分类</label>
+                <div style="display:flex; gap:8px;">
+                    <span id="cat-fc-btn" onclick="switchCategory('fc')" style="flex:1; text-align:center; padding:8px 0; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.95em; background:#e74c3c; color:#fff; transition:opacity 0.2s;">🏮 福彩</span>
+                    <span id="cat-tc-btn" onclick="switchCategory('tc')" style="flex:1; text-align:center; padding:8px 0; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.95em; background:#ddd; color:#888; transition:opacity 0.2s;">⚽ 体彩</span>
+                </div>
+            </div>
+            <div class="input-group">
                 <label>彩票类型</label>
-                <select id="batchType" onchange="handleBatchTypeChange()">
-                    <option value="shuangseqiu">🔴 双色球</option>
-                    <option value="daletou">🟢 大乐透</option>
-                    <option value="qilecai">🟡 七乐彩</option>
-                    <option value="kuail8">🟣 快乐8</option>
-                    <option value="fc3d">🔵 福彩3D</option>
-                    <option value="pl3">🟢 排列3</option>
-                    <option value="pl5">🟢 排列5</option>
-                </select>
+                <select id="batchType" onchange="handleBatchTypeChange()"></select>
             </div>
             
             <!-- 快乐8玩法级联选择 -->
@@ -79,5 +100,84 @@
 
     <script src="js/shared.js"></script>
     <script src="js/bet.js"></script>
+
+<script>
+/** 获取中国大陆当前日期（UTC+8） */
+function getChinaDate() {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    return new Date(utc + 8 * 3600000); // UTC+8
+}
+
+/** 今日开奖查询 */
+function getTodayDraws() {
+    const dayMap = ['日', '一', '二', '三', '四', '五', '六'];
+    const today = getChinaDate();
+    const weekDay = today.getDay(); // 0=日 1=一 ...
+    const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日 星期${dayMap[weekDay]}`;
+
+    const schedules = {
+        '双色球': { days: [2, 4, 0], emoji: '🔴', cat: 'fc' },
+        '七乐彩': { days: [1, 3, 5], emoji: '🟡', cat: 'fc' },
+        '快乐8':  { days: 'daily', emoji: '🟣', cat: 'fc' },
+        '福彩3D': { days: 'daily', emoji: '🔵', cat: 'fc' },
+        '大乐透': { days: [1, 3, 6], emoji: '🟢', cat: 'tc' },
+        '排列3':  { days: 'daily', emoji: '🟢', cat: 'tc' },
+        '排列5':  { days: 'daily', emoji: '🟢', cat: 'tc' },
+    };
+
+    const todayDraws = { fc: [], tc: [] };
+    for (const [name, sched] of Object.entries(schedules)) {
+        if (sched.days === 'daily' || sched.days.includes(weekDay)) {
+            todayDraws[sched.cat].push(name);
+        }
+    }
+
+    const timeStr = `${String(today.getHours()).padStart(2,'0')}:${String(today.getMinutes()).padStart(2,'0')}:${String(today.getSeconds()).padStart(2,'0')}`;
+    let html = `<div style="font-size:0.9em; color:#888; margin-bottom:4px;">📆 ${dateStr}  <span id="china-clock" style="font-variant-numeric:tabular-nums;">${timeStr}</span></div>`;
+    if (todayDraws.fc.length > 0) {
+        html += '<div style="font-weight:600; color:#e74c3c; font-size:0.95em;">🏮 福利彩票</div>';
+        html += '<div style="margin:4px 0 10px;">' + todayDraws.fc.map(n =>
+            `<span style="display:inline-block; background:#f0f4ff; color:#667eea; border-radius:12px; padding:3px 12px; margin:3px 4px; font-size:0.85em;">${schedules[n].emoji} ${n}</span>`
+        ).join('') + '</div>';
+    }
+    if (todayDraws.tc.length > 0) {
+        html += '<div style="font-weight:600; color:#27ae60; font-size:0.95em;">⚽ 体育彩票</div>';
+        html += '<div style="margin:4px 0 0;">' + todayDraws.tc.map(n =>
+            `<span style="display:inline-block; background:#e8f8e8; color:#27ae60; border-radius:12px; padding:3px 12px; margin:3px 4px; font-size:0.85em;">${schedules[n].emoji} ${n}</span>`
+        ).join('') + '</div>';
+    }
+    if (todayDraws.fc.length === 0 && todayDraws.tc.length === 0) {
+        html += '<div style="color:#999;">今日无开奖</div>';
+    }
+
+    document.getElementById('today-draws').innerHTML = html;
+}
+
+function showDrawCalendar() {
+    document.getElementById('draw-calendar-overlay').style.display = 'flex';
+}
+
+function closeDrawCalendar() {
+    document.getElementById('draw-calendar-overlay').style.display = 'none';
+}
+
+/** 实时时钟：每秒更新北京时间 */
+function startChinaClock() {
+    setInterval(() => {
+        const now = getChinaDate();
+        const el = document.getElementById('china-clock');
+        if (el) {
+            el.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        }
+    }, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    getTodayDraws();
+    startChinaClock();
+});
+</script>
+
 </body>
 </html>

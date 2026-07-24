@@ -749,6 +749,42 @@ const domCache = {
 /** 是否正在生成中（防止重复点击） */
 let isGenerating = false;
 
+/** 分类彩票列表 */
+const CATEGORY_LOTTERIES = {
+    fc: [
+        { value: 'shuangseqiu', label: '🔴 双色球' },
+        { value: 'qilecai',     label: '🟡 七乐彩' },
+        { value: 'kuail8',      label: '🟣 快乐8' },
+        { value: 'fc3d',        label: '🔵 福彩3D' },
+    ],
+    tc: [
+        { value: 'daletou',    label: '🟢 大乐透' },
+        { value: 'pl3',        label: '🟢 排列3' },
+        { value: 'pl5',        label: '🟢 排列5' },
+    ],
+};
+
+let currentCategory = 'fc';
+
+/** 切换彩票分类（福彩/体彩） */
+function switchCategory(cat) {
+    currentCategory = cat;
+    const fcBtn = document.getElementById('cat-fc-btn');
+    const tcBtn = document.getElementById('cat-tc-btn');
+    if (fcBtn) { fcBtn.style.background = cat === 'fc' ? '#e74c3c' : '#ddd'; fcBtn.style.color = cat === 'fc' ? '#fff' : '#888'; }
+    if (tcBtn) { tcBtn.style.background = cat === 'tc' ? '#27ae60' : '#ddd'; tcBtn.style.color = cat === 'tc' ? '#fff' : '#888'; }
+
+    const select = domCache.batchType;
+    select.innerHTML = '';
+    CATEGORY_LOTTERIES[cat].forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.value;
+        opt.textContent = l.label;
+        select.appendChild(opt);
+    });
+    handleBatchTypeChange();
+}
+
 /** 处理彩种类型变化：切换快乐8玩法选择区的显隐 */
 function handleBatchTypeChange() {
     const isKL8 = domCache.batchType.value === 'kuail8';
@@ -956,7 +992,7 @@ async function generateBatch() {
 // ==================== 初始化 ====================
 
 document.addEventListener('DOMContentLoaded', () => {
-    handleBatchTypeChange();
+    switchCategory('fc');
     // 页面加载后立即预取默认彩种的数据，用户点击生成时无需等待
     loadHistoryData(domCache.batchType.value).catch(() => {});
 });
