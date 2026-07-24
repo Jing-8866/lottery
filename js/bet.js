@@ -774,21 +774,24 @@ function switchCategory(cat) {
     if (fcBtn) { fcBtn.style.background = cat === 'fc' ? '#e74c3c' : '#ddd'; fcBtn.style.color = cat === 'fc' ? '#fff' : '#888'; }
     if (tcBtn) { tcBtn.style.background = cat === 'tc' ? '#27ae60' : '#ddd'; tcBtn.style.color = cat === 'tc' ? '#fff' : '#888'; }
 
-    const select = domCache.batchType;
+    const select = document.getElementById('batchType');
+    if (!select) return;
     select.innerHTML = '';
-    CATEGORY_LOTTERIES[cat].forEach(l => {
+    (CATEGORY_LOTTERIES[cat] || []).forEach(l => {
         const opt = document.createElement('option');
         opt.value = l.value;
         opt.textContent = l.label;
         select.appendChild(opt);
     });
-    handleBatchTypeChange();
+    if (typeof handleBatchTypeChange === 'function') handleBatchTypeChange();
 }
 
 /** 处理彩种类型变化：切换快乐8玩法选择区的显隐 */
 function handleBatchTypeChange() {
-    const isKL8 = domCache.batchType.value === 'kuail8';
-    domCache.kl8PlayGroup.classList.toggle('hidden', !isKL8);
+    const sel = document.getElementById('batchType');
+    const grp = document.getElementById('kl8PlayTypeGroup');
+    if (!sel || !grp) return;
+    grp.classList.toggle('hidden', sel.value !== 'kuail8');
 }
 
 /** 生成批量号码（分块异步执行，避免卡顿） */
