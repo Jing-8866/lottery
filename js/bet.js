@@ -75,6 +75,7 @@ const lotteryConfig = {
 
 /** 号码格式化：补零到两位数 */
 function fmt(n) {
+    if (n == null || isNaN(n)) return '??';
     return n.toString().padStart(2, '0');
 }
 
@@ -209,17 +210,17 @@ function analyzeColdHot(history, field, totalRange, recent = 20) {
     return scores;
 }
 
-/** 按权重随机抽取一个号码 */
-function weightedPick(candidates, weights) {
+/** 按权重随机抽取，返回被选中的下标 */
+function weightedPick(weights) {
     const total = weights.reduce((a, b) => a + b, 0);
-    if (total <= 0) return candidates[Math.floor(Math.random() * candidates.length)];
+    if (total <= 0) return 0;
 
     let r = Math.random() * total;
-    for (let i = 0; i < candidates.length; i++) {
+    for (let i = 0; i < weights.length; i++) {
         r -= weights[i];
-        if (r <= 0) return candidates[i];
+        if (r <= 0) return i;
     }
-    return candidates[candidates.length - 1];
+    return weights.length - 1;
 }
 
 // ==================== 走势策略：热号加权 ====================
@@ -242,7 +243,7 @@ function strategyHotWeighted(min, max, count, freqMap) {
         const tempCands = [...candidates];
 
         while (picked.size < count) {
-            const idx = weightedPick(tempCands, tempWeights);
+            const idx = weightedPick(tempWeights);
             picked.add(tempCands[idx]);
             // 选过的置零权重
             tempWeights[idx] = 0;
@@ -284,7 +285,7 @@ function strategyColdRebound(min, max, count, coldHotScores) {
         const tempCands = [...candidates];
 
         while (picked.size < count) {
-            const idx = weightedPick(tempCands, tempWeights);
+            const idx = weightedPick(tempWeights);
             picked.add(tempCands[idx]);
             tempWeights[idx] = 0;
         }
@@ -431,6 +432,12 @@ function strategyRecentTrend(min, max, count, history, field, opts) {
  */
 function sample(min, max, count) {
     const total = max - min + 1;
+    if (total < count || total <= 0 || count <= 0) {
+        // 容错：范围或个数无效时返回空数组
+        const safe = [];
+        for (let i = 0; i < Math.min(count, total); i++) safe.push(min + i);
+        return safe;
+    }
     const arr = new Array(total);
     for (let i = 0; i < total; i++) arr[i] = min + i;
     for (let i = 0; i < count; i++) {
@@ -642,7 +649,9 @@ function smartGenerate(min, max, count, opts) {
         if (r <= 0) { selectedIdx = i; break; }
     }
 
-    return strategies[selectedIdx]();
+    const result = strategies[selectedIdx]();
+    // 确保返回的是有效号码数组（过滤 undefined/NaN）
+    return Array.isArray(result) ? result.filter(n => n != null && !isNaN(n)) : sample(min, max, count);
 }
 
 /**
