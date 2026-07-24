@@ -83,12 +83,8 @@ async function preloadDrawData() {
         for (const file of ALL_DATA_FILES) {
             statusEl.textContent = `⏳ 正在下载 ${file}...`;
 
-            // 多源并行，不读缓存，确保拿最新数据
-            const urls = [
-                `${DATA_PATH_REMOTE}/${file}`,
-                `https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data/${file}`
-            ];
-            const resp = await _fetchFreshJson(...urls);
+            // 只请求 CDN（raw.githubusercontent.com 在国内被屏蔽）
+            const resp = await _fetchFreshJson(`${DATA_PATH_REMOTE}/${file}`);
             if (!resp) { failed++; continue; }
 
             const json = await resp.json();
