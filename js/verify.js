@@ -63,32 +63,36 @@ async function fetchDrawResult(lotteryId, issue) {
     const cfg = FIELD_MAP[lotteryId];
     if (!cfg) throw new Error('不支持的彩票类型');
 
-    // 优先使用缓存（可能是 Promise 或数组）
-    if (!drawDataCache[lotteryId]) {
+    // 有正在进行的请求时复用 Promise（避免重复请求），已完成的不缓存
+    let list;
+    const cached = drawDataCache[lotteryId];
+    if (cached instanceof Promise) {
+        list = await cached;
+    } else {
         const localUrl = `${DATA_PATH_LOCAL}/${cfg.file}`;
         const remoteUrl = `${DATA_PATH_REMOTE}/${cfg.file}`;
-        // 将 Promise 存入缓存，并发调用共享同一个请求
-        drawDataCache[lotteryId] = (async () => {
+        const promise = (async () => {
             try {
                 const resp = await fastestFetch(localUrl, remoteUrl);
                 if (!resp) throw new Error(`无法读取 ${cfg.file}`);
                 const json = await resp.json();
                 const data = json.data || [];
-                // 自动缓存到 localStorage，下次页面加载无需网络请求
                 if (data.length > 0) {
                     localStorage.setItem('lottery-' + cfg.file, JSON.stringify(json));
                 }
                 return data;
             } catch (e) {
-                // 请求失败时清除缓存，允许后续重试
                 delete drawDataCache[lotteryId];
                 throw e;
+            } finally {
+                delete drawDataCache[lotteryId];
             }
         })();
+
+        drawDataCache[lotteryId] = promise;
+        list = await promise;
     }
 
-    // 如果是 Promise，等待它完成
-    const list = await Promise.resolve(drawDataCache[lotteryId]);
     if (list.length === 0) throw new Error('开奖数据为空');
 
     // 找目标期号：指定期号 → 最新一期

@@ -128,23 +128,15 @@ let historyDataCache = {};
  * @returns {Promise<object[]>} 历史数据数组（最新期在前）
  */
 function loadHistoryData(betType) {
-    // 已有缓存数据，直接返回
-    if (historyDataCache[betType]) {
-        const cached = historyDataCache[betType];
-        // 如果是 Promise，且已完成但被拒绝，清除缓存让下一次重试
-        if (cached instanceof Promise) {
-            return cached.catch(() => {
-                delete historyDataCache[betType];
-                return loadHistoryData(betType);
-            });
-        }
-        return Promise.resolve(cached);
+    // 有正在进行的请求时，复用该 Promise（避免重复请求）
+    if (historyDataCache[betType] instanceof Promise) {
+        return historyDataCache[betType];
     }
 
     const map = BET_DATA_MAP[betType];
     if (!map) return Promise.resolve([]);
 
-    // 将 Promise 存入缓存，后续并发调用共享同一个请求
+    // 将 Promise 存入缓存，并发调用共享同一个请求
     const promise = (async () => {
         const localUrl = `${DATA_PATH_LOCAL}/${map.file}`;
         const remoteUrl = `${DATA_PATH_REMOTE}/${map.file}`;
@@ -161,10 +153,12 @@ function loadHistoryData(betType) {
                 localStorage.setItem('lottery-' + map.file, JSON.stringify(json));
             }
 
-            historyDataCache[betType] = data;
             return data;
         } catch {
             return [];
+        } finally {
+            // 请求完成后删除缓存标记，下次调用重新从 localStorage 读取最新数据
+            delete historyDataCache[betType];
         }
     })();
 

@@ -41,9 +41,33 @@ const lotteryData = {
     }
 };
 
+/** 从多个源并行请求，返回第一个成功的 JSON（跳过 localStorage 缓存） */
+async function _fetchFreshJson(...urls) {
+    const controllers = urls.map(() => new AbortController());
+    return new Promise(resolve => {
+        let settled = 0;
+        for (let i = 0; i < urls.length; i++) {
+            const idx = i;
+            fetch(urls[idx], { signal: controllers[idx].signal, cache: 'no-cache' })
+                .then(resp => {
+                    if (resp.ok) {
+                        controllers.forEach((c, j) => { if (j !== idx) c.abort(); });
+                        resolve(resp);
+                    } else if (++settled >= urls.length) {
+                        resolve(null);
+                    }
+                })
+                .catch(() => {
+                    if (++settled >= urls.length) resolve(null);
+                });
+        }
+    });
+}
+
 /**
  * 预加载所有彩种的开奖数据到 localStorage。
- * 每次点击都尝试下载最新数据（带缓存刷新），下载失败时保留旧缓存。
+ * 每次点击都从多个源并行获取最新数据，取最先成功的。
+ * 成功则更新缓存，失败则保留旧缓存。
  */
 async function preloadDrawData() {
     const btn = document.getElementById('preload-btn');
@@ -59,27 +83,16 @@ async function preloadDrawData() {
         for (const file of ALL_DATA_FILES) {
             statusEl.textContent = `⏳ 正在下载 ${file}...`;
 
-            // 加时间戳参数绕过 CDN 缓存，确保拿到最新数据
-            const url = `${DATA_PATH_REMOTE}/${file}?t=${Date.now()}`;
-            let resp;
-            try {
-                resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
-            } catch {
-                // 网络请求失败，保留旧缓存
-                failed++;
-                continue;
-            }
-            if (!resp.ok) {
-                failed++;
-                continue;
-            }
+            // 多源并行，不读缓存，确保拿最新数据
+            const urls = [
+                `${DATA_PATH_REMOTE}/${file}`,
+                `https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data/${file}`
+            ];
+            const resp = await _fetchFreshJson(...urls);
+            if (!resp) { failed++; continue; }
 
             const json = await resp.json();
-            // 检查返回的数据是否有效（有期号才算有效）
-            if (!json.data || json.data.length === 0) {
-                failed++;
-                continue;
-            }
+            if (!json.data || json.data.length === 0) { failed++; continue; }
 
             localStorage.setItem('lottery-' + file, JSON.stringify(json));
             success++;
@@ -134,7 +147,7 @@ async function fastestFetch(...urls) {
         let settled = 0;
         for (let i = 0; i < urls.length; i++) {
             const idx = i;
-            fetch(urls[idx], { signal: controllers[idx].signal })
+            fetch(urls[idx], { signal: controllers[idx].signal, cache: 'no-cache' })
                 .then(resp => {
                     if (resp.ok) {
                         controllers.forEach((c, j) => { if (j !== idx) c.abort(); });
