@@ -89,6 +89,13 @@ const lotteryConfig = {
             { key: 'digits', label: '5位号码', cssClass: 'mini-ball-green', min: 0, max: 9, count: 5 }
         ],
         isPositional: true
+    },
+    qixingcai: {
+        name: '七星彩',
+        groups: [
+            { key: 'digits', label: '7位号码', cssClass: 'mini-ball-green', min: 0, max: 9, count: 7 }
+        ],
+        isPositional: true
     }
 };
 
@@ -145,6 +152,9 @@ const BET_DATA_MAP = {
         { key: 'digits', field: 'red' }
     ]},
     pl5: { file: 'pl5.json', groups: [
+        { key: 'digits', field: 'red' }
+    ]},
+    qixingcai: { file: 'qxc.json', groups: [
         { key: 'digits', field: 'red' }
     ]}
 };
@@ -759,6 +769,7 @@ const CATEGORY_LOTTERIES = {
     ],
     tc: [
         { value: 'daletou',    label: '🟢 大乐透' },
+        { value: 'qixingcai',  label: '🟢 七星彩' },
         { value: 'pl3',        label: '🟢 排列3' },
         { value: 'pl5',        label: '🟢 排列5' },
     ],
