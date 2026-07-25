@@ -517,21 +517,25 @@ function checkParity(nums, allowedRatios) {
 
 /**
  * ---------------------------------------------------------------
- * 策略1：三区间均匀分布法
+ * 策略1：区间分布法
  * ---------------------------------------------------------------
- * 将号码范围分为三区，按比例从各区抽取，保证覆盖均匀。
+ * 将号码范围分为N个区间，每个号码所属区间以轮盘赌方式随机决定，
+ * 不再强制均匀分布，允许某些区间多选、某些区间少选甚至不选。
  * 适用于双色球红球、大乐透前区、七乐彩基本号。
  */
 function strategyZoneBalanced(zones, totalCount) {
-    const perZone = Math.floor(totalCount / zones.length);
-    const extra = totalCount - perZone * zones.length;
-    // 分配每区抽取数量
-    const counts = zones.map((_, i) => perZone + (i < extra ? 1 : 0));
-    // 打乱分配顺序，避免固定模式
-    const shuffledCounts = shuffle(counts);
+    // 用轮盘赌分配每个号码到随机区间（区间越大权重越高）
+    const zoneSizes = zones.map(([a, b]) => b - a + 1);
+    const totalSize = zoneSizes.reduce((a, b) => a + b, 0);
+    const counts = new Array(zones.length).fill(0);
+    for (let i = 0; i < totalCount; i++) {
+        const idx = weightedPick(zoneSizes);
+        counts[idx]++;
+    }
+    // 每区抽取
     let result = [];
     for (let i = 0; i < zones.length; i++) {
-        const cnt = shuffledCounts[i];
+        const cnt = counts[i];
         if (cnt > 0) {
             const picked = sample(zones[i][0], zones[i][1], cnt);
             result = result.concat(picked);
