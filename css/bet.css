@@ -238,6 +238,27 @@ h1 {
     box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
+/* 购买截止时间 */
+.deadline-info {
+    text-align: center;
+    padding: 12px 16px;
+    margin: 10px 0;
+    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+    border: 1px solid #ffcc80;
+    border-radius: 12px;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #e65100;
+    line-height: 1.6;
+}
+.deadline-info .countdown {
+    color: #d84315;
+    font-weight: 700;
+}
+.deadline-info .expired {
+    color: #c62828;
+}
+
 @media (max-width: 600px) {
     h1 {
         font-size: 1.8em;

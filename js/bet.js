@@ -799,6 +799,7 @@ function switchCategory(cat) {
         select.appendChild(opt);
     });
     if (typeof handleBatchTypeChange === 'function') handleBatchTypeChange();
+    if (typeof updateDeadline === 'function') updateDeadline();
 }
 
 /** 处理彩种类型变化：切换快乐8玩法选择区的显隐 */
@@ -807,6 +808,7 @@ function handleBatchTypeChange() {
     const grp = document.getElementById('kl8PlayTypeGroup');
     if (!sel || !grp) return;
     grp.classList.toggle('hidden', sel.value !== 'kuail8');
+    if (typeof updateDeadline === 'function') updateDeadline();
 }
 
 /** 生成批量号码（分块异步执行，避免卡顿） */

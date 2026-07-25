@@ -86,6 +86,12 @@
                 </select>
             </div>
             
+            <!-- 购买截止时间 -->
+            <div id="deadline-info" class="deadline-info">
+                ⏳ 加载中...
+            </div>
+            
+            
             <div class="input-group">
                 <label>投注数量</label>
                 <select id="batchCount">
@@ -179,9 +185,124 @@ function startChinaClock() {
     }, 1000);
 }
 
+/** 购买截止时间配置 */
+const DEADLINE_CONFIG = {
+    shuangseqiu: { name: '双色球', emoji: '🔴', days: [2, 4, 0], cutoff: '20:00' },
+    daletou:     { name: '大乐透', emoji: '🟢', days: [1, 3, 6], cutoff: '21:00' },
+    qilecai:     { name: '七乐彩', emoji: '🟡', days: [1, 3, 5], cutoff: '20:00' },
+    kuail8:      { name: '快乐8',  emoji: '🟣', days: 'daily',   cutoff: '21:00' },
+    fc3d:        { name: '福彩3D', emoji: '🔵', days: 'daily',   cutoff: '20:00' },
+    qixingcai:   { name: '七星彩', emoji: '🟢', days: [2, 5, 0], cutoff: '21:00' },
+    pl3:         { name: '排列3',  emoji: '🟢', days: 'daily',   cutoff: '21:00' },
+    pl5:         { name: '排列5',  emoji: '🟢', days: 'daily',   cutoff: '21:00' }
+};
+const DAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+
+/** 更新购买截止时间显示 */
+function updateDeadline() {
+    const el = document.getElementById('deadline-info');
+    if (!el) return;
+    const type = document.getElementById('batchType').value;
+    const cfg = DEADLINE_CONFIG[type];
+    if (!cfg) { el.textContent = '⏳ 请选择彩票类型'; return; }
+
+    const now = getChinaDate();
+    const today = now.getDay(); // 0=日
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const [cutH, cutM] = cfg.cutoff.split(':').map(Number);
+
+    // 判断今天是否是开奖日
+    const isDrawDay = cfg.days === 'daily' || cfg.days.includes(today);
+
+    let targetDay; // 目标开奖日 weekday (0-6)
+    let dayOffset = 0; // 距离今天的天数
+
+    if (isDrawDay) {
+        // 今天开奖，检查是否已过截止时间
+        const afterCutoff = currentHour > cutH || (currentHour === cutH && currentMinute >= cutM);
+        if (afterCutoff) {
+            // 已过截止时间，找下一个开奖日
+            dayOffset = 1;
+            targetDay = findNextDrawDay(cfg.days, today, 1);
+        } else {
+            // 还未截止，今天就是目标
+            targetDay = today;
+        }
+    } else {
+        // 今天不开奖，找下一个开奖日
+        dayOffset = 1;
+        targetDay = findNextDrawDay(cfg.days, today, 1);
+    }
+
+    // 计算实际天数偏移
+    let actualOffset = 0;
+    let checkDay = today;
+    while (checkDay !== targetDay) {
+        checkDay = (checkDay + 1) % 7;
+        actualOffset++;
+    }
+    if (actualOffset === 0 && isDrawDay) {
+        const afterCutoff = currentHour > cutH || (currentHour === cutH && currentMinute >= cutM);
+        if (afterCutoff) actualOffset = findDaysUntil(cfg.days, today);
+    }
+
+    const dayLabel = actualOffset === 0 ? '今天' : actualOffset === 1 ? '明天' : `周${DAY_NAMES[targetDay]}`;
+    const deadlineTime = `周${DAY_NAMES[targetDay]} ${cfg.cutoff}`;
+
+    // 倒计时
+    const targetDate = getChinaDate();
+    targetDate.setDate(targetDate.getDate() + actualOffset);
+    targetDate.setHours(cutH, cutM, 0, 0);
+    const diffMs = targetDate.getTime() - now.getTime();
+    const diffTotalMin = Math.max(0, Math.floor(diffMs / 60000));
+    const diffD = Math.floor(diffTotalMin / 1440);
+    const diffH = Math.floor((diffTotalMin % 1440) / 60);
+    const diffM = diffTotalMin % 60;
+
+    let countdownStr = '';
+    if (diffMs <= 0) {
+        countdownStr = '<span class="expired">已截止</span>';
+    } else if (diffD > 0) {
+        countdownStr = `<span class="countdown">还剩 ${diffD}天${diffH}小时${diffM}分钟</span>`;
+    } else if (diffH > 0) {
+        countdownStr = `<span class="countdown">还剩 ${diffH}小时${diffM}分钟</span>`;
+    } else {
+        countdownStr = `<span class="countdown">还剩 ${diffM}分钟</span>`;
+    }
+
+    el.innerHTML = `[${cfg.name}] 购买截止时间 : ${deadlineTime} &nbsp; ${countdownStr}`;
+}
+
+/** 找下一个开奖日（从 startDay 开始，跳过 offset 天） */
+function findNextDrawDay(days, startDay, skip) {
+    for (let d = 0; d < 7; d++) {
+        const check = (startDay + skip + d) % 7;
+        if (days === 'daily' || days.includes(check)) return check;
+    }
+    return startDay; // 兜底
+}
+
+/** 计算从今天到下一个开奖日的天数 */
+function findDaysUntil(days, startDay) {
+    for (let d = 1; d <= 7; d++) {
+        const check = (startDay + d) % 7;
+        if (days === 'daily' || days.includes(check)) return d;
+    }
+    return 1;
+}
+
+/** 实时更新截止时间倒计时（每分钟刷新） */
+function startDeadlineTimer() {
+    updateDeadline();
+    setInterval(updateDeadline, 60000);
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     getTodayDraws();
     startChinaClock();
+    startDeadlineTimer();
 });
 </script>
 
