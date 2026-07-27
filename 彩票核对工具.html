@@ -22,18 +22,22 @@
         <!-- <a href="https://datachart.500.com/" target="_blank" rel="noopener">📊 500.com 开奖记录</a> -->
     </div>
 
-    <div class="select-container">
-        <label>彩票分类：</label>
-        <select id="verify-category" onchange="verifyUpdateLottery()">
-            <option value="">--请选择分类--</option>
-            <option value="fc">🏮 福利彩票</option>
-            <option value="tc">⚽ 体育彩票</option>
-        </select>
-
-        <label>彩票类型：</label>
-        <select id="verify-lottery" onchange="verifySwitchLottery()">
-            <option value="">--请先选择分类--</option>
-        </select>
+    <div style="max-width:720px;margin:0 auto 20px;">
+        <div style="background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border-radius:12px;padding:20px 24px;box-shadow:0 4px 16px rgba(0,0,0,0.1);">
+            <div style="margin:0 0 12px;">
+                <label style="display:block;margin-bottom:8px;color:#555;font-weight:bold;">彩票分类</label>
+                <div style="display:flex;gap:8px;">
+                    <span id="vcat-fc-btn" onclick="verifySwitchCategory('fc')" style="flex:1;text-align:center;padding:8px 0;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.95em;background:#e74c3c;color:#fff;transition:opacity 0.2s;">🏮 福彩</span>
+                    <span id="vcat-tc-btn" onclick="verifySwitchCategory('tc')" style="flex:1;text-align:center;padding:8px 0;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.95em;background:#ddd;color:#888;transition:opacity 0.2s;">⚽ 体彩</span>
+                </div>
+            </div>
+            <div>
+                <label style="display:block;margin-bottom:8px;color:#555;font-weight:bold;">彩票类型</label>
+                <select id="verify-lottery" onchange="verifySwitchLottery()" style="width:100%;padding:12px 15px;border:2px solid #ddd;border-radius:10px;font-size:16px;color:#333;font-weight:bold;cursor:pointer;">
+                    <option value="">--请先选择分类--</option>
+                </select>
+            </div>
+        </div>
     </div>
 
     <div class="main-container">

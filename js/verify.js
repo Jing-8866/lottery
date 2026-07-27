@@ -318,28 +318,37 @@ function ballsHTML(nums, cssClass) {
 
 // ==================== 面板切换 ====================
 
-function verifyUpdateLottery() {
-    const category = document.getElementById('verify-category').value;
-    const select = document.getElementById('verify-lottery');
-    select.innerHTML = '';
+let verifyCurrentCategory = 'fc';
 
-    if (!category) {
+/** 切换彩票分类（福彩/体彩）按钮 */
+function verifySwitchCategory(cat) {
+    verifyCurrentCategory = cat;
+    const fcBtn = document.getElementById('vcat-fc-btn');
+    const tcBtn = document.getElementById('vcat-tc-btn');
+    if (fcBtn) { fcBtn.style.background = cat === 'fc' ? '#e74c3c' : '#ddd'; fcBtn.style.color = cat === 'fc' ? '#fff' : '#888'; }
+    if (tcBtn) { tcBtn.style.background = cat === 'tc' ? '#27ae60' : '#ddd'; tcBtn.style.color = cat === 'tc' ? '#fff' : '#888'; }
+
+    const select = document.getElementById('verify-lottery');
+    if (!select) return;
+    select.innerHTML = '';
+    const lotteries = verifyLotteryData[cat]?.lotteries || [];
+    if (lotteries.length === 0) {
         select.disabled = true;
-        select.innerHTML = '<option value="">--请先选择分类--</option>';
+        select.innerHTML = '<option value="">--暂无数据--</option>';
         hideAllVerifyPanels();
         return;
     }
-
-    const lotteries = verifyLotteryData[category].lotteries;
     select.disabled = false;
-    select.innerHTML = '<option value="">--请选择彩票类型--</option>';
     lotteries.forEach(l => {
         const opt = document.createElement('option');
         opt.value = l.id;
         opt.textContent = l.name;
         select.appendChild(opt);
     });
+    // 自动选中第一个并切换面板
+    select.value = lotteries[0].id;
     hideAllVerifyPanels();
+    verifySwitchLottery();
 }
 
 function hideAllVerifyPanels() {
@@ -990,9 +999,7 @@ let currentVerifyType = 'ssq';
 let currentDrawPool = 0;
 
 window.onload = function () {
-    document.getElementById('verify-category').value = 'fc';
-    verifyUpdateLottery();
-    document.getElementById('verify-lottery').value = 'ssq';
+    verifySwitchCategory('fc');
     // 先渲染 UI，再异步获取开奖数据，避免阻塞页面加载
     setTimeout(() => verifySwitchLottery(), 50);
 };
