@@ -127,22 +127,57 @@ h1 {
 
 .batch-balls {
     flex-grow: 1;
+    min-width: 0;
     display: flex;
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 4px;
     overflow-x: auto;
     padding: 3px 0;
 }
 
+/* 快乐8：号码球较多时允许换行展示，避免横向滚动 */
+.batch-item-kl8 .batch-balls {
+    flex-wrap: wrap;
+    overflow-x: visible;
+}
+
+/* 复制按钮（单注复制 / 全部复制） */
+.copy-btn {
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11px;
+    line-height: 1.5;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.2s, opacity 0.2s, background 0.2s;
+}
+.copy-btn:hover { transform: scale(1.05); opacity: 0.92; }
+.copy-btn:active { transform: scale(0.95); }
+.copy-btn.copied { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+
+/* 结果区标题栏（标题 + 全部复制） */
+.batch-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.batch-title { font-weight: 600; }
+
 .mini-ball {
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 13px;
+    font-size: 11px;
     color: white;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     flex-shrink: 0;
@@ -263,10 +298,28 @@ h1 {
     h1 {
         font-size: 1.8em;
     }
-    
+
+    body {
+        padding: 10px;
+    }
+
+    .card {
+        padding: 16px;
+    }
+
+    /* 移动端号码球更小，确保一注号码整行容纳在屏幕内，避免与复制按钮相互遮挡 */
     .mini-ball {
-        width: 30px;
-        height: 30px;
-        font-size: 11px;
+        width: 22px;
+        height: 22px;
+        font-size: 10px;
+    }
+
+    .batch-balls {
+        gap: 3px;
+    }
+
+    .batch-item {
+        gap: 6px;
+        padding: 6px;
     }
 }
