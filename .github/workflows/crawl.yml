@@ -27,7 +27,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 lxml chardet
 
-      - name: 运行爬虫
+      - name: 恢复 data-auto 分支的历史数据到 data/
+        run: |
+          # main 分支因 .gitignore 不含 data/，历史数据只在 data-auto 分支
+          git fetch origin data-auto 2>/dev/null || true
+          if git show-ref --verify --quiet refs/remotes/origin/data-auto; then
+            # data-auto 存在：用其 data/ 覆盖本地（先清空避免残留旧文件）
+            rm -rf data
+            git checkout origin/data-auto -- data || { echo "恢复 data-auto 历史数据失败"; exit 1; }
+            echo "已恢复 data-auto 历史数据 ($(ls data | wc -l) 个文件)"
+          else
+            # 首次运行：data-auto 尚不存在，用空 data/ 让爬虫抓取初始数据
+            mkdir -p data
+            echo "data-auto 分支不存在，本次将抓取初始数据并创建 data-auto 分支"
+          fi
+
+      - name: 运行爬虫（与历史数据合并去重）
         run: python py/crawl.py
 
       - name: 仅推送 data/ 目录到 data-auto 分支
