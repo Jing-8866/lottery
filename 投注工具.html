@@ -271,7 +271,8 @@ function updateDeadline() {
         countdownStr = `<span class="countdown">还剩 ${diffM}分钟</span>`;
     }
 
-    el.innerHTML = `[${cfg.name}] 购买截止时间 : ${deadlineTime} &nbsp; ${countdownStr}`;
+    // el.innerHTML = `[${cfg.name}] 购买截止时间 : ${deadlineTime} &nbsp; ${countdownStr}`;
+    el.innerHTML = `[${cfg.name}] 购买截止时间 : ${deadlineTime} </br> ${countdownStr}`;
 }
 
 /** 找下一个开奖日（从 startDay 开始，跳过 offset 天） */
