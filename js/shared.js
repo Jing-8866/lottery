@@ -8,6 +8,18 @@
 const DATA_PATH_LOCAL = 'data';
 /** 线上远程路径（data-auto 分支，通过 jsDelivr CDN 加速，国内可访问） */
 const DATA_PATH_REMOTE = 'https://cdn.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data';
+/**
+ * 线上远程数据源列表（data-auto 分支，多镜像 + raw GitHub 兜底）。
+ * 说明：data-auto 分支由 GitHub Actions 使用 `git push --force` 更新，
+ * jsDelivr 对强制推送分支的缓存可能滞后，出现历史期号缺失（如 ssq 2025144）。
+ * 因此查询指定期号时需在多源之间选择"确实包含该期号"的数据。
+ */
+const DATA_PATH_REMOTES = [
+    'https://cdn.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data',
+    'https://fastly.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data',
+    'https://gcore.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data',
+    'https://raw.githubusercontent.com/Jing-8866/lottery/data-auto/data'
+];
 /** 所有彩种对应的 JSON 文件名 */
 const ALL_DATA_FILES = ['ssq.json', 'dlt.json', 'qlc.json', 'kl8.json', 'qxc.json', 'fc3d.json', 'pl3.json', 'pl5.json'];
 
@@ -86,8 +98,8 @@ async function preloadDrawData() {
         for (const file of ALL_DATA_FILES) {
             statusEl.textContent = `⏳ 正在下载 ${file}...`;
 
-            // 只请求 CDN（raw.githubusercontent.com 在国内被屏蔽）
-            const resp = await _fetchFreshJson(`${DATA_PATH_REMOTE}/${file}`);
+            // 从多个远程源并行请求（jsDelivr 多镜像 + raw GitHub 兜底），取最先成功的
+            const resp = await _fetchFreshJson(...DATA_PATH_REMOTES.map(base => `${base}/${file}`));
             if (!resp) { failed++; continue; }
 
             const json = await resp.json();
@@ -154,6 +166,45 @@ async function fastestFetch(...urls) {
                     } else if (++settled >= urls.length) {
                         resolve(null);
                     }
+                })
+                .catch(() => {
+                    if (++settled >= urls.length) resolve(null);
+                });
+        }
+    });
+}
+
+/**
+ * 绕过 localStorage，从多个远程源并行拉取指定文件，
+ * 返回第一个"成功返回 且 包含指定期号"的数据。
+ * 用于解决 CDN 缓存滞后导致的历史期号缺失问题（如 jsDelivr 对强制推送分支缓存旧版本）。
+ * @param {string} fileName  JSON 文件名，如 'ssq.json'
+ * @param {string} issue     要查找的期号，如 '2025144'
+ * @returns {Promise<{json: object, target: object}|null>}
+ */
+async function fetchFreshForIssue(fileName, issue) {
+    const urls = DATA_PATH_REMOTES.map(base => `${base}/${fileName}`);
+    const controllers = urls.map(() => new AbortController());
+    return new Promise(resolve => {
+        let settled = 0;
+        for (let i = 0; i < urls.length; i++) {
+            const idx = i;
+            fetch(urls[idx], { signal: controllers[idx].signal, cache: 'no-cache' })
+                .then(async resp => {
+                    if (resp.ok) {
+                        try {
+                            const json = await resp.json();
+                            const list = json.data || [];
+                            const target = list.find(item => item.issue === issue);
+                            if (target) {
+                                // 找到目标期号，中止其余请求
+                                controllers.forEach((c, j) => { if (j !== idx) c.abort(); });
+                                resolve({ json, target });
+                                return;
+                            }
+                        } catch { /* 解析失败，按失败源处理 */ }
+                    }
+                    if (++settled >= urls.length) resolve(null);
                 })
                 .catch(() => {
                     if (++settled >= urls.length) resolve(null);

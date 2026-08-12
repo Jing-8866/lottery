@@ -71,3 +71,14 @@ jobs:
           git add -f data/
           git diff --staged --quiet || git commit -m "Auto update lottery data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push --force origin data-auto
+
+      - name: 清除 jsDelivr CDN 缓存（防止历史期号缺失）
+        run: |
+          # data-auto 分支使用 git push --force，jsDelivr 可能长期缓存旧版本（曾缺 ssq 2025144）。
+          # 推送后主动清理 CDN 缓存，确保 data/*.json 立即更新到最新。
+          curl -sS -o /dev/null -w "purge dir: %{http_code}\n" \
+            "https://purge.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data" || true
+          for f in ssq dlt qlc kl8 qxc fc3d pl3 pl5; do
+            curl -sS -o /dev/null -w "purge $f: %{http_code}\n" \
+              "https://purge.jsdelivr.net/gh/Jing-8866/lottery@data-auto/data/${f}.json" || true
+          done
