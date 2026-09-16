@@ -728,24 +728,122 @@ function smartGenerateKL8(count) {
 
 // ==================== 渲染函数 ====================
 
-/** 生成一组智能号码球的 HTML */
-function smartGroupBallsHTML(min, max, count, cssClass, opts) {
+/** 生成一组智能号码球：返回 { html, nums } */
+function smartGroupBalls(min, max, count, cssClass, opts) {
     const nums = opts
         ? smartGenerate(min, max, count, opts)
         : sample(min, max, count);
-    return nums.map(n => ballHTML(n, cssClass)).join('');
+    return { html: nums.map(n => ballHTML(n, cssClass)).join(''), nums };
+}
+
+/** 生成一组智能号码球的 HTML */
+function smartGroupBallsHTML(min, max, count, cssClass, opts) {
+    return smartGroupBalls(min, max, count, cssClass, opts).html;
+}
+
+/** 生成一组快乐8号码球：返回 { html, nums }（走势版） */
+function kl8GroupBalls(count, cssClass, trend) {
+    let nums;
+    if (trend && trend.freqMap && trend.freqMap.size > 0 && count > 2) {
+        nums = smartGenerate(1, 80, count, {
+            zones: [[1,20], [21,40], [41,60], [61,80]],
+            trend
+        });
+    } else {
+        nums = smartGenerateKL8(count);
+    }
+    return { html: nums.map(n => ballHTML(n, cssClass)).join(''), nums };
 }
 
 /** 生成一组快乐8号码球的 HTML（走势版） */
 function kl8GroupBallsHTML(count, cssClass, trend) {
-    if (trend && trend.freqMap && trend.freqMap.size > 0 && count > 2) {
-        const nums = smartGenerate(1, 80, count, {
-            zones: [[1,20], [21,40], [41,60], [61,80]],
-            trend
-        });
-        return nums.map(n => ballHTML(n, cssClass)).join('');
+    return kl8GroupBalls(count, cssClass, trend).html;
+}
+
+/**
+ * 号码组数组 → 复制文本。
+ * 同组号码用全角逗号「，」分隔，不同组之间用「+」分隔。
+ * 例：双色球 1，2，3，4，5，6 + 7；大乐透 1，2，3，4，5 + 6，7；快乐8 1，2，3，4，5
+ * @param {number[][]} groups 每组号码数组（保持生成顺序）
+ * @returns {string}
+ */
+function groupsToCopyText(groups) {
+    return groups.map(nums => nums.join('，')).join(' + ');
+}
+
+/** 号码组数组 → 球 HTML（按组拼接） */
+function groupsToBallsHTML(groups, cssClasses) {
+    return groups.map((nums, i) => nums.map(n => ballHTML(n, cssClasses[i])).join('')).join('');
+}
+
+/** 构建一注结果项（球 HTML + 单注复制按钮），并把复制文本存到 dataset.copy */
+function buildBatchItem(groups, cssClasses, extraClass) {
+    const item = document.createElement('div');
+    item.className = 'batch-item' + (extraClass ? ' ' + extraClass : '');
+    item.dataset.copy = groupsToCopyText(groups);
+    item.innerHTML = `
+        <div class="batch-balls">${groupsToBallsHTML(groups, cssClasses)}</div>
+        <button class="copy-btn" onclick="copyBetText(this)" title="复制这注号码">复制</button>`;
+    return item;
+}
+
+// ==================== 复制功能 ====================
+
+/**
+ * 复制文本到剪贴板（兼容 file:// 等非安全上下文）。
+ * 成功/失败时让按钮短暂显示状态反馈。
+ * @param {string} text
+ * @param {HTMLElement} [btn] 触发按钮（可选）
+ */
+async function copyTextToClipboard(text, btn) {
+    if (!text) return;
+    const flash = (msg, ok) => {
+        if (!btn) return;
+        const orig = btn.dataset.origText || btn.textContent;
+        btn.dataset.origText = orig;
+        btn.textContent = msg;
+        btn.classList.toggle('copied', ok);
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+    };
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            // 降级：隐藏 textarea + execCommand（file:// 或 http 环境可用）
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+        flash('已复制', true);
+    } catch (e) {
+        console.error('复制失败:', e);
+        flash('复制失败', false);
     }
-    return smartGenerateKL8(count).map(n => ballHTML(n, cssClass)).join('');
+}
+
+/** 复制单注号码（点击单注右侧的复制按钮） */
+function copyBetText(btn) {
+    const item = btn.closest('.batch-item');
+    const text = item ? (item.dataset.copy || '') : '';
+    if (!text) { alert('未找到该注号码'); return; }
+    copyTextToClipboard(text, btn);
+}
+
+/** 复制全部投注号码（每注一行） */
+function copyAllBets() {
+    const items = document.querySelectorAll('#batchResults .batch-item');
+    const texts = [];
+    items.forEach(item => {
+        if (item.dataset.copy) texts.push(item.dataset.copy);
+    });
+    if (texts.length === 0) { alert('暂无已生成的投注号码'); return; }
+    const btn = document.querySelector('#batchResults .batch-toolbar .copy-btn');
+    copyTextToClipboard(texts.join('\n'), btn);
 }
 
 // ==================== UI 交互 ====================
@@ -882,11 +980,20 @@ async function generateBatch() {
         ? `【${config.name}-${config.plays[parseInt(domCache.batchKL8Play.value)].name}】`
         : `【${config.name}】`;
 
-    // 清空结果区，先显示标题
+    // 清空结果区，先显示标题 + 全部复制按钮
     resultsDiv.innerHTML = '';
     const titleDiv = document.createElement('div');
-    titleDiv.className = 'stats';
-    titleDiv.textContent = titleText;
+    titleDiv.className = 'stats batch-toolbar';
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'batch-title';
+    titleSpan.textContent = titleText;
+    const copyAllBtn = document.createElement('button');
+    copyAllBtn.className = 'copy-btn';
+    copyAllBtn.textContent = '全部复制';
+    copyAllBtn.title = '复制所有投注号码，每注一行';
+    copyAllBtn.onclick = copyAllBets;
+    titleDiv.appendChild(titleSpan);
+    titleDiv.appendChild(copyAllBtn);
     resultsDiv.appendChild(titleDiv);
 
     // 显示走势摘要
@@ -928,39 +1035,33 @@ async function generateBatch() {
                 history, freqMap: mainTrend.freqMap, coldHotMap: mainTrend.coldHotMap, field: 'red'
             } : null;
             for (let i = start; i < end; i++) {
-                const item = document.createElement('div');
-                item.className = 'batch-item';
-                item.innerHTML = `<div class="batch-balls">${kl8GroupBallsHTML(playCount, config.cssClass, kl8Trend)}</div>`;
-                fragment.appendChild(item);
+                const r = kl8GroupBalls(playCount, config.cssClass, kl8Trend);
+                // 快乐8号码较多，允许换行展示
+                fragment.appendChild(buildBatchItem([r.nums], [config.cssClass], 'batch-item-kl8'));
             }
         } else if (config.isPositional) {
             // 定位彩种（福彩3D、排列3、排列5）：每位独立随机 0-9，可重复
             for (let i = start; i < end; i++) {
-                const item = document.createElement('div');
-                item.className = 'batch-item';
-                const ballsHtml = config.groups.map(g => {
+                const groups = config.groups.map(g => {
                     const digits = [];
                     for (let d = 0; d < g.count; d++) {
                         digits.push(Math.floor(Math.random() * (g.max - g.min + 1)) + g.min);
                     }
-                    return digits.map(n => ballHTML(n, g.cssClass)).join('');
-                }).join('');
-                item.innerHTML = `<div class="batch-balls">${ballsHtml}</div>`;
-                fragment.appendChild(item);
+                    return digits;
+                });
+                fragment.appendChild(buildBatchItem(groups, config.groups.map(g => g.cssClass)));
             }
         } else {
             for (let i = start; i < end; i++) {
-                const item = document.createElement('div');
-                item.className = 'batch-item';
-                const ballsHtml = config.groups.map(g => {
+                const groups = config.groups.map(g => {
                     const isSub = (g.key === 'blue' || g.key === 'back' || g.key === 'special');
                     if (isSub && subTrend) {
-                        return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
+                        return smartGenerate(g.min, g.max, g.count, {
                             trend: { ...subTrend }
                         });
                     }
                     if (mainTrend) {
-                        return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
+                        return smartGenerate(g.min, g.max, g.count, {
                             zones: config.zones,
                             sumRange: config.sumRange,
                             parityRatios: config.parityRatios,
@@ -969,18 +1070,16 @@ async function generateBatch() {
                         });
                     }
                     if (isSub) {
-                        return sample(g.min, g.max, g.count)
-                            .map(n => ballHTML(n, g.cssClass)).join('');
+                        return sample(g.min, g.max, g.count);
                     }
-                    return smartGroupBallsHTML(g.min, g.max, g.count, g.cssClass, {
+                    return smartGenerate(g.min, g.max, g.count, {
                         zones: config.zones,
                         sumRange: config.sumRange,
                         parityRatios: config.parityRatios,
                         spanRange: config.spanRange
                     });
-                }).join('');
-                item.innerHTML = `<div class="batch-balls">${ballsHtml}</div>`;
-                fragment.appendChild(item);
+                });
+                fragment.appendChild(buildBatchItem(groups, config.groups.map(g => g.cssClass)));
             }
         }
 

@@ -78,19 +78,31 @@ async function fetchDrawResult(lotteryId, issue) {
     const resp = await fastestFetch(localUrl, remoteUrl);
     if (!resp) throw new Error(`无法读取 ${cfg.file}`);
 
-    const json = await resp.json();
-    const list = json.data || [];
+    let json = await resp.json();
+    let list = json.data || [];
     if (list.length === 0) throw new Error('开奖数据为空');
 
-    // 自动缓存到 localStorage
-    try { localStorage.setItem('lottery-' + cfg.file, JSON.stringify(json)); } catch {}
-
     // 找目标期号：指定期号 → 最新一期
-    const target = issue
+    let target = issue
         ? list.find(item => item.issue === issue)
         : list[0];
 
+    // 指定期号未命中 → 本地缓存/CDN 数据可能过期（如 jsDelivr 对强制推送分支缓存滞后，
+    // 曾出现 ssq.json 缺失历史期号 2025144）。
+    // 绕过 localStorage，从多个远程源重新拉取，取第一个包含该期号的数据。
+    if (issue && !target) {
+        const fresh = await fetchFreshForIssue(cfg.file, issue);
+        if (fresh) {
+            json = fresh.json;
+            list = json.data || [];
+            target = fresh.target;
+        }
+    }
+
     if (!target) throw new Error(`未找到期号 ${issue || '(最新)'} 的开奖数据`);
+
+    // 自动缓存到 localStorage
+    try { localStorage.setItem('lottery-' + cfg.file, JSON.stringify(json)); } catch {}
 
     // 构建返回结构
     const groups = cfg.groups.map(g => {
